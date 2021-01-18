@@ -99,6 +99,11 @@ public:
     { 
         glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, glm::value_ptr(value));
     }
+    void setVec3(const std::string& name, float x, float y, float z) const
+    {
+        // TODO: Not sure if this works
+        glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, glm::value_ptr(glm::vec3(x, y, z)));
+    }
 
 private:
     // utility function for checking shader compilation/linking errors.
