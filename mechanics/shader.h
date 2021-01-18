@@ -104,6 +104,11 @@ public:
         // TODO: Not sure if this works
         glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, glm::value_ptr(glm::vec3(x, y, z)));
     }
+    void setVec3(const std::string& name, glm::vec3 value) const
+    {
+        // TODO: Not sure if this works
+        glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, glm::value_ptr(value));
+    }
 
 private:
     // utility function for checking shader compilation/linking errors.
