@@ -225,6 +225,33 @@ int main()
 	lightShader.setInt("material.diffuse", 2);
 	lightShader.setInt("material.specular", 3);
 
+	glm::vec3 pointLightPositions[] = {
+		glm::vec3(0.7f,  0.2f,  2.0f),
+		glm::vec3(2.3f, -3.3f, -4.0f),
+		glm::vec3(-4.0f,  2.0f, -12.0f),
+		glm::vec3(0.0f,  0.0f, -3.0f)
+	};
+
+	for (unsigned int i = 0; i < 3; i++)
+	{
+		char buffer[64];
+
+		sprintf_s(buffer, "pointLights[%i].position", i);
+		lightShader.setVec3(buffer, pointLightPositions[i]);
+		sprintf_s(buffer, "pointLights[%i].constant", i);
+		lightShader.setFloat(buffer, 1.0f);
+		sprintf_s(buffer, "pointLights[%i].linear", i);
+		lightShader.setFloat(buffer, 0.09f);
+		sprintf_s(buffer, "pointLights[%i].quadratic", i);
+		lightShader.setFloat(buffer, 0.032f);
+		sprintf_s(buffer, "pointLights[%i].ambient", i);
+		lightShader.setVec3(buffer, 0.2f, 0.2f, 0.2f);
+		sprintf_s(buffer, "pointLights[%i].diffuse", i);
+		lightShader.setVec3(buffer, 0.5f, 0.5f, 0.5f);
+		sprintf_s(buffer, "pointLights[%i].specular", i);
+		lightShader.setVec3(buffer, 1.0f, 1.0f, 1.0f);
+	}
+
 	while (!glfwWindowShouldClose(window))
 	{
 		// per-frame time logic
@@ -241,21 +268,17 @@ int main()
 		lightShader.use();
 		lightShader.setVec3("viewPos", camera.Position);
 		lightShader.setFloat("material.shininess", 64.0f);
-		lightShader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
-		lightShader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f);
-		lightShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
-		lightShader.setFloat("light.constant", 1.0f);
-		lightShader.setFloat("light.linear", 0.09f);
-		lightShader.setFloat("light.quadratic", 0.032f);
-		lightShader.setVec3("light.position", camera.Position);
-		lightShader.setVec3("light.direction", camera.Front);
-
-		// We're passing the cos of an angle instead of the actual cutoff angle here
-		// Reason being because the dot product result in the shader will return the cos of the angle between two vectors
-		// We don't want to do an inverse cosine in the shader because that's expensive. So we'll just compare cos values instead.
-		lightShader.setFloat("light.cutOff", glm::cos(glm::radians(12.5f)));
-		//lightShader.setVec3("light.direction", -0.2f, -1.0f, -0.3f);
-
+		lightShader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);
+		lightShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
+		lightShader.setVec3("dirLight.diffuse", 0.5f, 0.5f, 0.5f);
+		lightShader.setVec3("dirLight.specular", 1.0f, 1.0f, 1.0f);
+		lightShader.setVec3("spotLight.position", camera.Position);
+		lightShader.setVec3("spotLight.direction", camera.Front);
+		lightShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
+		lightShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(17.5f)));
+		lightShader.setVec3("spotLight.ambient", 0.2f, 0.2f, 0.2f);
+		lightShader.setVec3("spotLight.diffuse", 0.5f, 0.5f, 0.5f);
+		lightShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
 
 		// pass projection matrix to shader (note that in this case it could change every frame)
 		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)_width / (float)_height, 0.1f, 100.0f);
@@ -279,15 +302,18 @@ int main()
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
 
-		// Draw light source
-		//glBindVertexArray(lightVAO);
-		//lampShader.use();
-		//lampShader.setMat4("projection", projection);
-		//lampShader.setMat4("view", view);
-		//glm::mat4 lampModel = glm::mat4(1.0f);
-		//lampModel = glm::translate(lampModel, lightPos);
-		//lampShader.setMat4("model", lampModel);
-		//glDrawArrays(GL_TRIANGLES, 0, 36);
+		// Draw light sources
+		for (unsigned int i = 0; i < 3; i++)
+		{
+			glBindVertexArray(lightVAO);
+			lampShader.use();
+			lampShader.setMat4("projection", projection);
+			lampShader.setMat4("view", view);
+			glm::mat4 lampModel = glm::mat4(1.0f);
+			lampModel = glm::translate(lampModel, pointLightPositions[i]);
+			lampShader.setMat4("model", lampModel);
+			glDrawArrays(GL_TRIANGLES, 0, 36);
+		}
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
