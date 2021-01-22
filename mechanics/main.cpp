@@ -232,24 +232,17 @@ int main()
 		glm::vec3(0.0f,  0.0f, -3.0f)
 	};
 
-	for (unsigned int i = 0; i < 3; i++)
+	lightShader.use();
+	for (unsigned int i = 0; i < 4; i++)
 	{
-		char buffer[64];
-
-		sprintf_s(buffer, "pointLights[%i].position", i);
-		lightShader.setVec3(buffer, pointLightPositions[i]);
-		sprintf_s(buffer, "pointLights[%i].constant", i);
-		lightShader.setFloat(buffer, 1.0f);
-		sprintf_s(buffer, "pointLights[%i].linear", i);
-		lightShader.setFloat(buffer, 0.09f);
-		sprintf_s(buffer, "pointLights[%i].quadratic", i);
-		lightShader.setFloat(buffer, 0.032f);
-		sprintf_s(buffer, "pointLights[%i].ambient", i);
-		lightShader.setVec3(buffer, 0.2f, 0.2f, 0.2f);
-		sprintf_s(buffer, "pointLights[%i].diffuse", i);
-		lightShader.setVec3(buffer, 0.5f, 0.5f, 0.5f);
-		sprintf_s(buffer, "pointLights[%i].specular", i);
-		lightShader.setVec3(buffer, 1.0f, 1.0f, 1.0f);
+		auto s = std::to_string(i);
+		lightShader.setVec3("pointLights[" + s + "].position", pointLightPositions[i]);
+		lightShader.setFloat("pointLights[" + s + "].constant", 1.0f);
+		lightShader.setFloat("pointLights[" + s + "].linear", 0.09f);
+		lightShader.setFloat("pointLights[" + s + "].quadratic", 0.032f);
+		lightShader.setVec3("pointLights[" + s + "].ambient", 0.05f, 0.05f, 0.05f);
+		lightShader.setVec3("pointLights[" + s + "].diffuse", 0.8f, 0.8f, 0.8f);
+		lightShader.setVec3("pointLights[" + s + "].specular", 1.0f, 1.0f, 1.0f);
 	}
 
 	while (!glfwWindowShouldClose(window))
@@ -272,13 +265,17 @@ int main()
 		lightShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
 		lightShader.setVec3("dirLight.diffuse", 0.5f, 0.5f, 0.5f);
 		lightShader.setVec3("dirLight.specular", 1.0f, 1.0f, 1.0f);
+
 		lightShader.setVec3("spotLight.position", camera.Position);
 		lightShader.setVec3("spotLight.direction", camera.Front);
 		lightShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
 		lightShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(17.5f)));
-		lightShader.setVec3("spotLight.ambient", 0.2f, 0.2f, 0.2f);
-		lightShader.setVec3("spotLight.diffuse", 0.5f, 0.5f, 0.5f);
+		lightShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
+		lightShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
 		lightShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
+		lightShader.setFloat("spotLight.constant", 1.0f);
+		lightShader.setFloat("spotLight.linear", 0.09f);
+		lightShader.setFloat("spotLight.quadratic", 0.032f);
 
 		// pass projection matrix to shader (note that in this case it could change every frame)
 		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)_width / (float)_height, 0.1f, 100.0f);
