@@ -52,7 +52,7 @@ public:
 			else if (name == "texture_specular")
 				number = to_string(specularNr++);
 
-			shader.setFloat(("material." + name + number).c_str(), i);
+			shader.setInt(("material." + name + number).c_str(), i);
 			glBindTexture(GL_TEXTURE_2D, textures[i].id);
 		}
 		glActiveTexture(GL_TEXTURE0);
