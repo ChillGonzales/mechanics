@@ -28,7 +28,7 @@ const float _physicsTimestep = 1.0f / 60.0f;
 bool enablePhysics = false;
 
 // camera
-Camera camera(glm::vec3(0.0f, 5.0f, 10.0f));
+Camera camera(glm::vec3(0.0f, 5.0f, 15.0f));
 float lastX = _width / 2.0f;
 float lastY = _height / 2.0f;
 bool firstMouse = true;
@@ -138,6 +138,7 @@ int main()
 	// Add the collider to the rigid body 
 	Collider* backpackCollider = backpackRBody->addCollider(sphereShape, transform);
 	Collider* floorCollider = floorRBody->addCollider(boxShape, transform);
+	backpackCollider->getMaterial().setBounciness(0.6f);
 
 	// Init variables for main loop
 	float accumulator = 0.0f;
@@ -151,11 +152,11 @@ int main()
 		float currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
-		accumulator += deltaTime;
 		processInput(window);
 
 		if (enablePhysics)
 		{
+			accumulator += deltaTime;
 			while (accumulator >= _physicsTimestep)
 			{
 				// Update the physics sim
@@ -176,7 +177,7 @@ int main()
 			// Update the previous transform 
 			prevTransform = currTransform;
 		}
-	
+
 		// Rendering logic
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
