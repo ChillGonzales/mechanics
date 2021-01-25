@@ -19,13 +19,16 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
+Vector3 toPhysVec(glm::vec3 vec);
 
 // settings
-const int _width = 800;
-const int _height = 600;
+const int _width = 1000;
+const int _height = 700;
+const float _physicsTimestep = 1.0f / 60.0f;
+bool enablePhysics = false;
 
 // camera
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera camera(glm::vec3(0.0f, 5.0f, 10.0f));
 float lastX = _width / 2.0f;
 float lastY = _height / 2.0f;
 bool firstMouse = true;
@@ -44,7 +47,7 @@ int main()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	GLFWwindow* window = glfwCreateWindow(800, 600, "LearnOpenGL", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(_width, _height, "LearnOpenGL", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window" << std::endl;
@@ -100,14 +103,80 @@ int main()
 		lightShader.setVec3("pointLights[" + s + "].specular", 1.0f, 1.0f, 1.0f);
 	}
 
+	// **** PHYSICS SETUP ****
+	// Create the world settings 
+	PhysicsWorld::WorldSettings settings;
+	settings.isSleepingEnabled = true;
+	settings.gravity = Vector3(0, -9.81f, 0);
+	PhysicsCommon common;
+	auto* world = common.createPhysicsWorld(settings);
+	// Defaults are 10 and 5 so if this is laggy then change it.
+	// Change the number of iterations of the velocity solver 
+	world->setNbIterationsVelocitySolver(15);
+	// Change the number of iterations of the position solver 
+	world->setNbIterationsPositionSolver(8);
+
+	// Rigidbody setup
+	glm::vec3 backpackPos = glm::vec3(0.0f, 10.0f, 0.0f);
+	glm::vec3 floorPos = glm::vec3(0.0f, 0.0f, 0.0f);
+	Transform backpackTrans = Transform(toPhysVec(backpackPos), Quaternion::identity());
+	Transform floorTrans = Transform(toPhysVec(floorPos), Quaternion::identity());
+	RigidBody* backpackRBody = world->createRigidBody(backpackTrans);
+	RigidBody* floorRBody = world->createRigidBody(floorTrans);
+	backpackRBody->setType(BodyType::DYNAMIC);
+	floorRBody->setType(BodyType::STATIC);
+
+	// Collider setup
+	// Instantiate a sphere collision shape 
+	float radius = 1.0f;
+	SphereShape* sphereShape = common.createSphereShape(radius);
+	BoxShape* boxShape = common.createBoxShape(Vector3(10.0f, 1.0f, 10.0f));
+
+	// Relative transform of the collider relative to the body origin 
+	Transform transform = Transform::identity();
+
+	// Add the collider to the rigid body 
+	Collider* backpackCollider = backpackRBody->addCollider(sphereShape, transform);
+	Collider* floorCollider = floorRBody->addCollider(boxShape, transform);
+
+	// Init variables for main loop
+	float accumulator = 0.0f;
+	float modelMatrix[16];
+	float factor = 0.0f;
+	Transform prevTransform = backpackRBody->getTransform();
+
 	while (!glfwWindowShouldClose(window))
 	{
 		// per-frame time logic
 		float currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
+		accumulator += deltaTime;
 		processInput(window);
 
+		if (enablePhysics)
+		{
+			while (accumulator >= _physicsTimestep)
+			{
+				// Update the physics sim
+				world->update(_physicsTimestep);
+				accumulator -= _physicsTimestep;
+			}
+
+			// Compute the time interpolation factor 
+			decimal factor = accumulator / _physicsTimestep;
+
+			// Get the updated transform of the body 
+			Transform currTransform = backpackRBody->getTransform();
+			//std::cout << "Current position: " << currTransform.getPosition().to_string() << std::endl;
+
+			// Compute the interpolated transform of the rigid body 
+			Transform interpolatedTransform = Transform::interpolateTransforms(prevTransform, currTransform, factor);
+
+			// Update the previous transform 
+			prevTransform = currTransform;
+		}
+	
 		// Rendering logic
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -139,15 +208,20 @@ int main()
 		// camera/view transformation
 		glm::mat4 view = camera.GetViewMatrix();
 		lightShader.setMat4("view", view);
-		glm::mat4 model = glm::mat4(1.0f);
-		model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
-		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
+		backpackRBody->getTransform().getOpenGLMatrix(modelMatrix);
+		glm::mat4 model = glm::make_mat4(modelMatrix);
+		//model = glm::translate(model, trans.getPosition()); // add the translation from our source of truth translation to the model matrix
+		//model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
 		lightShader.setMat4("model", model);
 		backpack.Draw(lightShader);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+
+	// Clean up physics memory
+	world->destroyRigidBody(backpackRBody);
+	common.destroyPhysicsWorld(world);
 
 	glfwTerminate();
 	return 0;
@@ -194,5 +268,11 @@ void processInput(GLFWwindow* window)
 		camera.ProcessKeyboard(LEFT, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 		camera.ProcessKeyboard(RIGHT, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+		enablePhysics = true;
 }
 
+Vector3 toPhysVec(glm::vec3 vec)
+{
+	return Vector3(vec.x, vec.y, vec.z);
+}
