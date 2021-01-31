@@ -13,6 +13,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <assimp/scene.h>
 #include <reactphysics3d/reactphysics3d.h>
+#include "skybox.h"
 using namespace reactphysics3d;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -43,11 +44,8 @@ glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 
 struct Meshes
 {
-	Meshes()
-	{ }
-
 	// Rendering
-	Model* models[NUM_OBJECTS];
+	Model models[NUM_OBJECTS];
 	glm::mat4 model_mats[NUM_OBJECTS];
 
 	// Physics
@@ -94,9 +92,8 @@ int main()
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
 	// With our nice shader class, just give the paths and call use
-	Shader textureCubeShader("shaders/textured-cube/vertex.glsl", "shaders/textured-cube/fragment.glsl");
 	Shader lightShader("shaders/light/vertex.glsl", "shaders/light/fragment.glsl");
-	Shader lampShader("shaders/lamp/vertex.glsl", "shaders/lamp/fragment.glsl");
+	Shader skyboxShader("shaders/skybox/vertex.glsl", "shaders/skybox/fragment.glsl");
 	stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
 
 	glm::vec3 pointLightPositions[] = {
@@ -119,15 +116,28 @@ int main()
 		lightShader.setVec3("pointLights[" + s + "].specular", 1.0f, 1.0f, 1.0f);
 	}
 
+	Skybox skybox;
+	// Set up our skybox
+	vector<std::string> faces
+	{
+		"assets/skybox/right.jpg",
+		"assets/skybox/left.jpg",
+		"assets/skybox/top.jpg",
+		"assets/skybox/bottom.jpg",
+		"assets/skybox/front.jpg",
+		"assets/skybox/back.jpg"
+	};
+	skybox.init(faces);
+
 	// Set up our objects for physics and rendering
 	Meshes meshes;
-	
+
 	auto ball = Model("assets/ball/ball.obj");
-	meshes.models[0] = &ball;
+	meshes.models[0] = ball;
+
 	for (unsigned int i = 1; i <= 6; i++)
 	{
-		auto floor = Model("assets/plank/plank.obj");
-		meshes.models[i] = &floor;
+		meshes.models[i] = Model("assets/plank/plank.obj");
 	}
 
 	// **** PHYSICS SETUP ****
@@ -148,6 +158,7 @@ int main()
 	meshes.prev_transforms[0] = ballTransform;
 	auto rBody = world->createRigidBody(ballTransform);
 	rBody->setType(BodyType::DYNAMIC);
+	meshes.bodies[0] = rBody;
 	float radius = 3.0f;
 	SphereShape* sphereShape = common.createSphereShape(radius);
 	BoxShape* boxShape = common.createBoxShape(Vector3(10.0f, 1.0f, 10.0f));
@@ -178,7 +189,7 @@ int main()
 	};
 	for (unsigned int i = 1; i <= 6; i++)
 	{
-		auto trans = Transform(positions[i-1], Quaternion::fromEulerAngles(angles[i-1]));
+		auto trans = Transform(positions[i - 1], Quaternion::fromEulerAngles(angles[i - 1]));
 		//meshes.transforms[i] = trans;
 		meshes.prev_transforms[i] = trans;
 		auto rBody = world->createRigidBody(trans);
@@ -216,7 +227,7 @@ int main()
 
 			for (unsigned int i = 0; i < NUM_OBJECTS; i++)
 			{
-				auto currTrans = meshes.bodies[i]->getTransform();
+				const auto& currTrans = meshes.bodies[i]->getTransform();
 				// Compute the interpolated transform of the rigid body 
 				Transform interpolatedTransform = Transform::interpolateTransforms(meshes.prev_transforms[i], currTrans, factor);
 
@@ -228,6 +239,9 @@ int main()
 		// Rendering logic
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// pass projection matrix to shader (note that in this case it could change every frame)
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
 		// Activate our shader program
 		lightShader.use();
@@ -249,8 +263,6 @@ int main()
 		lightShader.setFloat("spotLight.linear", 0.09f);
 		lightShader.setFloat("spotLight.quadratic", 0.032f);
 
-		// pass projection matrix to shader (note that in this case it could change every frame)
-		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 		lightShader.setMat4("projection", projection);
 
 		// camera/view transformation
@@ -263,8 +275,23 @@ int main()
 			//model = glm::translate(model, trans.getPosition()); // add the translation from our source of truth translation to the model matrix
 			//model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
 			lightShader.setMat4("model", model);
-			meshes.models[i]->Draw(lightShader);
+			meshes.models[i].Draw(lightShader);
 		}
+
+		// draw skybox last
+		glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+		skyboxShader.use();
+		view = glm::mat4(glm::mat3(camera.GetViewMatrix())); // remove translation from the view matrix
+		skyboxShader.setMat4("projection", projection);
+		skyboxShader.setMat4("view", view);
+		// skybox cube
+		glBindVertexArray(skybox.VAO);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, skybox.cubemapTexture);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		glBindVertexArray(0);
+		glDepthFunc(GL_LESS); // set depth function back to default
+
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
@@ -329,3 +356,5 @@ Vector3 toPhysVec(glm::vec3 vec)
 {
 	return Vector3(vec.x, vec.y, vec.z);
 }
+
+

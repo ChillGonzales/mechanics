@@ -32,6 +32,10 @@ public:
     string directory;
     bool gammaCorrection;
 
+    // So we can use the empty version in struct init
+    Model()
+    { }
+
     // constructor, expects a filepath to a 3D model.
     Model(string const& path, bool gamma = false) : gammaCorrection(gamma)
     {
