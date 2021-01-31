@@ -25,7 +25,7 @@ Vector3 toPhysVec(glm::vec3 vec);
 // settings
 const int SCR_WIDTH = 1000;
 const int SCR_HEIGHT = 700;
-const int NUM_OBJECTS = 7;
+const int NUM_OBJECTS = 2;
 const float _physicsTimestep = 1.0f / 60.0f;
 bool enablePhysics = false;
 
@@ -135,7 +135,7 @@ int main()
 	auto ball = Model("assets/ball/ball.obj");
 	meshes.models[0] = ball;
 
-	for (unsigned int i = 1; i <= 6; i++)
+	for (unsigned int i = 1; i < NUM_OBJECTS; i++)
 	{
 		meshes.models[i] = Model("assets/plank/plank.obj");
 	}
@@ -160,15 +160,16 @@ int main()
 	rBody->setType(BodyType::DYNAMIC);
 	meshes.bodies[0] = rBody;
 	float radius = 3.0f;
+	// TODO: how to get physics shapes to match extents of meshes?
 	SphereShape* sphereShape = common.createSphereShape(radius);
-	BoxShape* boxShape = common.createBoxShape(Vector3(10.0f, 1.0f, 10.0f));
+	BoxShape* boxShape = common.createBoxShape(Vector3(20.0f, 1.0f, 20.0f));
 
 	// Relative transform of the collider relative to the body origin 
 	Transform ident = Transform::identity();
 
 	// Add the collider to the rigid body 
 	auto collider = rBody->addCollider(sphereShape, ident);
-	collider->getMaterial().setBounciness(0.8f);
+	collider->getMaterial().setBounciness(0.6f);
 	meshes.colliders[0] = collider;
 
 	Vector3 angles[] = {
@@ -180,14 +181,14 @@ int main()
 		Vector3(0.0f, 0.0f, 90.0f)
 	};
 	Vector3 positions[] = {
-		Vector3(0.0f, 0.0f, 0.0f),
-		Vector3(0.0f, 30.0f, 0.0f),
+		Vector3(0.0f, 15.0f, 0.0f),
+		Vector3(0.0f, 60.0f, 0.0f),
 		Vector3(0.0f, 0.0f, -15.0f),
 		Vector3(0.0f, 0.0f, 15.0f),
 		Vector3(-15.0f, 0.0f, 0.0f),
 		Vector3(15.0f, 0.0f, 0.0f)
 	};
-	for (unsigned int i = 1; i <= 6; i++)
+	for (unsigned int i = 1; i < NUM_OBJECTS; i++)
 	{
 		auto trans = Transform(positions[i - 1], Quaternion::fromEulerAngles(angles[i - 1]));
 		//meshes.transforms[i] = trans;
