@@ -80,6 +80,7 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(ProjectDir)ext\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)ext\lib;$(LibraryPath)</LibraryPath>
+    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -155,6 +156,7 @@
     <ClInclude Include="stb_image.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="ext\dynamic\assimp.dll" />
     <None Include="shaders\fragment.glsl" />
     <None Include="shaders\vertex.glsl" />
   </ItemGroup>

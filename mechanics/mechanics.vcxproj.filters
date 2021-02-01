@@ -48,5 +48,6 @@
   <ItemGroup>
     <None Include="shaders\fragment.glsl" />
     <None Include="shaders\vertex.glsl" />
+    <None Include="ext\dynamic\assimp.dll" />
   </ItemGroup>
 </Project>
