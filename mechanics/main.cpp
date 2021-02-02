@@ -20,7 +20,8 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
-Vector3 toPhysVec(glm::vec3 vec);
+void setupPointLights(Shader* shader);
+const Vector3 toPhysVec(glm::vec3 vec);
 
 // settings
 const int SCR_WIDTH = 1920;
@@ -42,19 +43,18 @@ float lastFrame = 0.0f;
 // positions
 glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 
-struct Meshes
+struct EntityState
 {
-	// Rendering
-	Model models[NUM_OBJECTS];
-	glm::mat4 model_mats[NUM_OBJECTS];
+	// Shared
+	Transform prev_transforms[NUM_OBJECTS];
 
 	// Physics
-	//Transform transforms[NUM_OBJECTS];
-	Transform prev_transforms[NUM_OBJECTS];
-	//Vector3 positions[NUM_OBJECTS];
-	//Quaternion rotations[NUM_OBJECTS];
 	RigidBody* bodies[NUM_OBJECTS];
 	Collider* colliders[NUM_OBJECTS];
+
+	// Rendering
+	Model models[NUM_OBJECTS];
+	Transform render_transform[NUM_OBJECTS];
 };
 
 int main()
@@ -98,25 +98,7 @@ int main()
 	skyboxShader.setInt("skybox", 0);
 	stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
 
-	glm::vec3 pointLightPositions[] = {
-		glm::vec3(0.7f,  0.2f,  2.0f),
-		glm::vec3(2.3f, -3.3f, -4.0f),
-		glm::vec3(-4.0f,  2.0f, -12.0f),
-		glm::vec3(0.0f,  0.0f, -3.0f)
-	};
-
-	lightShader.use();
-	for (unsigned int i = 0; i < 4; i++)
-	{
-		auto s = std::to_string(i);
-		lightShader.setVec3("pointLights[" + s + "].position", pointLightPositions[i]);
-		lightShader.setFloat("pointLights[" + s + "].constant", 1.0f);
-		lightShader.setFloat("pointLights[" + s + "].linear", 0.09f);
-		lightShader.setFloat("pointLights[" + s + "].quadratic", 0.032f);
-		lightShader.setVec3("pointLights[" + s + "].ambient", 0.05f, 0.05f, 0.05f);
-		lightShader.setVec3("pointLights[" + s + "].diffuse", 0.8f, 0.8f, 0.8f);
-		lightShader.setVec3("pointLights[" + s + "].specular", 1.0f, 1.0f, 1.0f);
-	}
+	setupPointLights(&lightShader);
 
 	Skybox skybox;
 	// Set up our skybox
@@ -132,39 +114,40 @@ int main()
 	skybox.init(faces);
 
 	// Set up our objects for physics and rendering
-	Meshes meshes;
+	EntityState entities;
 
 	auto ball = Model("assets/ball/ball.obj");
-	meshes.models[0] = ball;
+	entities.models[0] = ball;
 
 	for (unsigned int i = 1; i < NUM_OBJECTS; i++)
 	{
-		meshes.models[i] = Model("assets/plank/plank.obj");
+		entities.models[i] = Model("assets/plank/plank.obj");
 	}
 
-	// **** PHYSICS SETUP ****
 	// Create the world settings 
 	PhysicsWorld::WorldSettings settings;
 	settings.isSleepingEnabled = true;
 	settings.gravity = Vector3(0, -9.81f, 0);
 	PhysicsCommon common;
 	auto* world = common.createPhysicsWorld(settings);
+
 	// Defaults are 10 and 5 so if this is laggy then change it.
-	// Change the number of iterations of the velocity solver 
 	world->setNbIterationsVelocitySolver(15);
-	// Change the number of iterations of the position solver 
 	world->setNbIterationsPositionSolver(8);
 
 	// Rigidbody setup
 	auto ballTransform = Transform(Vector3(0.0f, 30.0f, 0.0f), Quaternion::identity());
-	meshes.prev_transforms[0] = ballTransform;
+	entities.prev_transforms[0] = ballTransform;
+	entities.render_transform[0] = ballTransform;
 	auto rBody = world->createRigidBody(ballTransform);
 	rBody->setType(BodyType::DYNAMIC);
-	meshes.bodies[0] = rBody;
+	entities.bodies[0] = rBody;
 	float radius = 3.0f;
+
 	// TODO: how to get physics shapes to match extents of meshes?
 	SphereShape* sphereShape = common.createSphereShape(radius);
 	BoxShape* boxShape = common.createBoxShape(Vector3(20.0f, 1.0f, 20.0f));
+	CapsuleShape* capsuleShape = common.createCapsuleShape(3.0f, 8.0f);
 
 	// Relative transform of the collider relative to the body origin 
 	Transform ident = Transform::identity();
@@ -172,23 +155,20 @@ int main()
 	// Add the collider to the rigid body 
 	auto collider = rBody->addCollider(sphereShape, ident);
 	collider->getMaterial().setBounciness(0.6f);
-	meshes.colliders[0] = collider;
+	entities.colliders[0] = collider;
+
+	auto cameraTransform = Transform(toPhysVec(camera.Position), Quaternion::identity());
+	auto cameraBody = world->createRigidBody(cameraTransform);
+	cameraBody->setType(BodyType::STATIC);
+	auto cameraCollider = cameraBody->addCollider(capsuleShape, ident);
 
 	Vector3 angles[] = {
 		Vector3(0.0f, 0.0f, 0.0f),
-		Vector3(0.0f, 0.0f, 0.0f),
-		Vector3(90.0f, 0.0f, 0.0f),
-		Vector3(90.0f, 0.0f, 0.0f),
-		Vector3(0.0f, 0.0f, 90.0f),
-		Vector3(0.0f, 0.0f, 90.0f)
+		Vector3(0.0f, 0.0f, 0.0f)
 	};
 	Vector3 positions[] = {
 		Vector3(0.0f, 0.0f, 0.0f),
-		Vector3(0.0f, 60.0f, 0.0f),
-		Vector3(0.0f, 0.0f, -15.0f),
-		Vector3(0.0f, 0.0f, 15.0f),
-		Vector3(-15.0f, 0.0f, 0.0f),
-		Vector3(15.0f, 0.0f, 0.0f)
+		Vector3(0.0f, 60.0f, 0.0f)
 	};
 	glm::vec3 modelOffsets[] = {
 		glm::vec3(0.0f, 0.0f, 0.0f),
@@ -197,13 +177,13 @@ int main()
 	for (unsigned int i = 1; i < NUM_OBJECTS; i++)
 	{
 		auto trans = Transform(positions[i - 1], Quaternion::fromEulerAngles(angles[i - 1]));
-		//meshes.transforms[i] = trans;
-		meshes.prev_transforms[i] = trans;
+		entities.prev_transforms[i] = trans;
+		entities.render_transform[i] = trans;
 		auto rBody = world->createRigidBody(trans);
 		rBody->setType(BodyType::STATIC);
-		meshes.bodies[i] = rBody;
+		entities.bodies[i] = rBody;
 		auto coll = rBody->addCollider(boxShape, ident);
-		meshes.colliders[i] = coll;
+		entities.colliders[i] = coll;
 	}
 
 	// Init variables for main loop
@@ -221,6 +201,11 @@ int main()
 		if (enablePhysics)
 		{
 			accumulator += deltaTime;
+
+			// Sync camera physics position with camera position
+			// cameraTransform.setFromOpenGL(); TODO: Look into using this to sync positions instead
+			cameraTransform.setPosition(toPhysVec(camera.Position));
+
 			while (accumulator >= _physicsTimestep)
 			{
 				// Update the physics sim
@@ -233,12 +218,13 @@ int main()
 
 			for (unsigned int i = 0; i < NUM_OBJECTS; i++)
 			{
-				const auto& currTrans = meshes.bodies[i]->getTransform();
+				const auto& currTrans = entities.bodies[i]->getTransform();
 				// Compute the interpolated transform of the rigid body 
-				Transform interpolatedTransform = Transform::interpolateTransforms(meshes.prev_transforms[i], currTrans, factor);
+				Transform interpolatedTransform = Transform::interpolateTransforms(entities.prev_transforms[i], currTrans, factor);
 
 				// Update the previous transform 
-				meshes.prev_transforms[i] = currTrans;
+				entities.prev_transforms[i] = currTrans;
+				entities.render_transform[i] = interpolatedTransform;
 			}
 		}
 
@@ -255,16 +241,6 @@ int main()
 		lightShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
 		lightShader.setVec3("dirLight.diffuse", 0.5f, 0.5f, 0.5f);
 		lightShader.setVec3("dirLight.specular", 1.0f, 1.0f, 1.0f);
-		lightShader.setVec3("spotLight.position", camera.Position);
-		lightShader.setVec3("spotLight.direction", camera.Front);
-		lightShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
-		lightShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(17.5f)));
-		lightShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
-		lightShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
-		lightShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
-		lightShader.setFloat("spotLight.constant", 1.0f);
-		lightShader.setFloat("spotLight.linear", 0.09f);
-		lightShader.setFloat("spotLight.quadratic", 0.032f);
 
 		// camera/view transformation
 		glm::mat4 view = camera.GetViewMatrix();
@@ -273,13 +249,13 @@ int main()
 		lightShader.setMat4("projection", projection);
 		for (unsigned int i = 0; i < NUM_OBJECTS; i++)
 		{
-			meshes.prev_transforms[i].getOpenGLMatrix(modelMatrix);
+			entities.render_transform[i].getOpenGLMatrix(modelMatrix);
 			glm::mat4 model = glm::make_mat4(modelMatrix);
 			model = glm::translate(model, modelOffsets[i]);
 			//model = glm::translate(model, trans.getPosition()); // add the translation from our source of truth translation to the model matrix
 			//model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
 			lightShader.setMat4("model", model);
-			meshes.models[i].Draw(lightShader);
+			entities.models[i].Draw(lightShader);
 		}
 
 		// draw skybox last
@@ -303,7 +279,7 @@ int main()
 	// Clean up physics memory
 	for (unsigned int i = 0; i < NUM_OBJECTS; i++)
 	{
-		world->destroyRigidBody(meshes.bodies[i]);
+		world->destroyRigidBody(entities.bodies[i]);
 	}
 	common.destroyPhysicsWorld(world);
 
@@ -360,9 +336,30 @@ void processInput(GLFWwindow* window)
 		enablePhysics = true;
 }
 
-Vector3 toPhysVec(glm::vec3 vec)
+void setupPointLights(Shader* shader)
+{
+	glm::vec3 pointLightPositions[] = {
+		glm::vec3(0.7f, 35.2f, 2.0f),
+		glm::vec3(2.3f, 32.3f, -4.0f),
+		glm::vec3(-4.0f, 36.0f, -12.0f),
+		glm::vec3(0.0f, 40.0f, -3.0f)
+	};
+
+	shader->use();
+	for (unsigned int i = 0; i < 4; i++)
+	{
+		auto s = std::to_string(i);
+		shader->setVec3("pointLights[" + s + "].position", pointLightPositions[i]);
+		shader->setFloat("pointLights[" + s + "].constant", 1.0f);
+		shader->setFloat("pointLights[" + s + "].linear", 0.09f);
+		shader->setFloat("pointLights[" + s + "].quadratic", 0.032f);
+		shader->setVec3("pointLights[" + s + "].ambient", 0.05f, 0.05f, 0.05f);
+		shader->setVec3("pointLights[" + s + "].diffuse", 0.8f, 0.8f, 0.8f);
+		shader->setVec3("pointLights[" + s + "].specular", 1.0f, 1.0f, 1.0f);
+	}
+}
+
+const Vector3 toPhysVec(glm::vec3 vec)
 {
 	return Vector3(vec.x, vec.y, vec.z);
 }
-
-
