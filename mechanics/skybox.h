@@ -35,7 +35,7 @@ struct Skybox
 
 	static unsigned int loadCubemap(vector<std::string> faces)
 	{
-		stbi_set_flip_vertically_on_load(false); // tell stb_image.h to flip loaded texture's on the y-axis.
+		stbi_set_flip_vertically_on_load(false);
 		unsigned int textureID;
 		glGenTextures(1, &textureID);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
