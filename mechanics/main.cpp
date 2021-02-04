@@ -94,6 +94,7 @@ int main()
 	// With our nice shader class, just give the paths and call use
 	Shader lightShader("shaders/light/vertex.glsl", "shaders/light/fragment.glsl");
 	Shader skyboxShader("shaders/skybox/vertex.glsl", "shaders/skybox/fragment.glsl");
+	Shader lampShader("shaders/lamp/vertex.glsl", "shaders/lamp/fragment.glsl");
 	skyboxShader.use();
 	skyboxShader.setInt("skybox", 0);
 	stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
@@ -143,9 +144,8 @@ int main()
 	entities.render_transform[0] = ballTransform;
 	auto rBody = world->createRigidBody(ballTransform);
 	rBody->setType(BodyType::DYNAMIC);
-	entities.bodies[0] = rBody;
-	float radius = 3.0f;
-
+	meshes.bodies[0] = rBody;
+	float radius = 10.0f;
 	// TODO: how to get physics shapes to match extents of meshes?
 	SphereShape* sphereShape = common.createSphereShape(radius);
 	BoxShape* boxShape = common.createBoxShape(Vector3(20.0f, 1.0f, 20.0f));
@@ -191,8 +191,8 @@ int main()
 	// Init variables for main loop
 	float accumulator = 0.0f;
 	float modelMatrix[16];
-	const int floatsPerLine = 2 * 3;
-	const int floatsPerTri = 3 * 3;
+	const unsigned int floatsPerLine = 2 * 3;
+	const unsigned int floatsPerTri = 3 * 3;
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -224,45 +224,50 @@ int main()
 		}
 
 		auto numDebugLines = debugRenderer.getNbLines();
-		auto numDebugTris = debugRenderer.getNbTriangles();
-		auto* debugLines = debugRenderer.getLinesArray();
-		auto* debugTris = debugRenderer.getTrianglesArray();
 		float* lineVertices = new float[floatsPerLine * numDebugLines];
-		float* triVertices = new float[floatsPerTri * numDebugTris];
-
-		for (int i = 0; i < numDebugLines; i++)
+		if (numDebugLines > 0)
 		{
-			int vertexIx = i * floatsPerLine;
-			float floats[floatsPerLine] = {
-				debugLines[i].point1.x,
-				debugLines[i].point1.y,
-				debugLines[i].point1.z,
-				debugLines[i].point2.x,
-				debugLines[i].point2.y,
-				debugLines[i].point2.z
-			};
-			for (int j = 0; j < floatsPerLine; j++)
+			auto* debugLines = debugRenderer.getLinesArray();
+			for (int i = 0; i < numDebugLines; i++)
 			{
-				lineVertices[vertexIx + j] = floats[j];
+				int vertexIx = i * floatsPerLine;
+				float floats[floatsPerLine] = {
+					debugLines[i].point1.x,
+					debugLines[i].point1.y,
+					debugLines[i].point1.z,
+					debugLines[i].point2.x,
+					debugLines[i].point2.y,
+					debugLines[i].point2.z
+				};
+				for (int j = 0; j < floatsPerLine; j++)
+				{
+					lineVertices[vertexIx + j] = floats[j];
+				}
 			}
 		}
-		for (int i = 0; i < numDebugTris; i++)
+		auto numDebugTris = debugRenderer.getNbTriangles();
+		float* triVertices = new float[floatsPerTri * numDebugTris];
+		if (numDebugTris > 0)
 		{
-			int vertexIx = i * floatsPerTri;
-			float floats[floatsPerTri] = {
-				debugTris[i].point1.x,
-				debugTris[i].point1.y,
-				debugTris[i].point1.z,
-				debugTris[i].point2.x,
-				debugTris[i].point2.y,
-				debugTris[i].point2.z,
-				debugTris[i].point3.x,
-				debugTris[i].point3.y,
-				debugTris[i].point3.z
-			};
-			for (int j = 0; j < floatsPerTri; j++)
+			auto* debugTris = debugRenderer.getTrianglesArray();
+			for (int i = 0; i < numDebugTris; i++)
 			{
-				triVertices[vertexIx + j] = floats[j];
+				int vertexIx = i * floatsPerTri;
+				float floats[floatsPerTri] = {
+					debugTris[i].point1.x,
+					debugTris[i].point1.y,
+					debugTris[i].point1.z,
+					debugTris[i].point2.x,
+					debugTris[i].point2.y,
+					debugTris[i].point2.z,
+					debugTris[i].point3.x,
+					debugTris[i].point3.y,
+					debugTris[i].point3.z
+				};
+				for (int j = 0; j < floatsPerTri; j++)
+				{
+					triVertices[vertexIx + j] = floats[j];
+				}
 			}
 		}
 
@@ -319,8 +324,12 @@ int main()
 			entities.models[i].Draw(lightShader);
 		}
 
-		glBindVertexArray(debugLineVAO);
-		glDrawArrays(GL_LINES, 0, numDebugLines);
+		lampShader.use();
+		if (numDebugLines > 0)
+		{
+			glBindVertexArray(debugLineVAO);
+			glDrawArrays(GL_LINES, 0, numDebugLines);
+		}
 		glBindVertexArray(debugTriVAO);
 		glDrawArrays(GL_TRIANGLES, 0, numDebugTris);
 
