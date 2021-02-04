@@ -130,10 +130,12 @@ int main()
 	settings.gravity = Vector3(0, -9.81f, 0);
 	PhysicsCommon common;
 	auto* world = common.createPhysicsWorld(settings);
-
+	world->setIsDebugRenderingEnabled(true);
 	// Defaults are 10 and 5 so if this is laggy then change it.
 	world->setNbIterationsVelocitySolver(15);
 	world->setNbIterationsPositionSolver(8);
+	DebugRenderer& debugRenderer = world->getDebugRenderer();
+	debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
 
 	// Rigidbody setup
 	auto ballTransform = Transform(Vector3(0.0f, 30.0f, 0.0f), Quaternion::identity());
@@ -189,6 +191,8 @@ int main()
 	// Init variables for main loop
 	float accumulator = 0.0f;
 	float modelMatrix[16];
+	const int floatsPerLine = 2 * 3;
+	const int floatsPerTri = 3 * 3;
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -198,35 +202,92 @@ int main()
 		lastFrame = currentFrame;
 		processInput(window);
 
-		if (enablePhysics)
+		accumulator += deltaTime;
+		while (accumulator >= _physicsTimestep)
 		{
-			accumulator += deltaTime;
+			// Update the physics sim
+			world->update(_physicsTimestep);
+			accumulator -= _physicsTimestep;
+		}
 
-			// Sync camera physics position with camera position
-			// cameraTransform.setFromOpenGL(); TODO: Look into using this to sync positions instead
-			cameraTransform.setPosition(toPhysVec(camera.Position));
+		// Compute the time interpolation factor 
+		decimal factor = accumulator / _physicsTimestep;
 
-			while (accumulator >= _physicsTimestep)
+		for (unsigned int i = 0; i < NUM_OBJECTS; i++)
+		{
+			const auto& currTrans = meshes.bodies[i]->getTransform();
+			// Compute the interpolated transform of the rigid body 
+			Transform interpolatedTransform = Transform::interpolateTransforms(meshes.prev_transforms[i], currTrans, factor);
+
+			// Update the previous transform 
+			meshes.prev_transforms[i] = currTrans;
+		}
+
+		auto numDebugLines = debugRenderer.getNbLines();
+		auto numDebugTris = debugRenderer.getNbTriangles();
+		auto* debugLines = debugRenderer.getLinesArray();
+		auto* debugTris = debugRenderer.getTrianglesArray();
+		float* lineVertices = new float[floatsPerLine * numDebugLines];
+		float* triVertices = new float[floatsPerTri * numDebugTris];
+
+		for (int i = 0; i < numDebugLines; i++)
+		{
+			int vertexIx = i * floatsPerLine;
+			float floats[floatsPerLine] = {
+				debugLines[i].point1.x,
+				debugLines[i].point1.y,
+				debugLines[i].point1.z,
+				debugLines[i].point2.x,
+				debugLines[i].point2.y,
+				debugLines[i].point2.z
+			};
+			for (int j = 0; j < floatsPerLine; j++)
 			{
-				// Update the physics sim
-				world->update(_physicsTimestep);
-				accumulator -= _physicsTimestep;
-			}
-
-			// Compute the time interpolation factor 
-			decimal factor = accumulator / _physicsTimestep;
-
-			for (unsigned int i = 0; i < NUM_OBJECTS; i++)
-			{
-				const auto& currTrans = entities.bodies[i]->getTransform();
-				// Compute the interpolated transform of the rigid body 
-				Transform interpolatedTransform = Transform::interpolateTransforms(entities.prev_transforms[i], currTrans, factor);
-
-				// Update the previous transform 
-				entities.prev_transforms[i] = currTrans;
-				entities.render_transform[i] = interpolatedTransform;
+				lineVertices[vertexIx + j] = floats[j];
 			}
 		}
+		for (int i = 0; i < numDebugTris; i++)
+		{
+			int vertexIx = i * floatsPerTri;
+			float floats[floatsPerTri] = {
+				debugTris[i].point1.x,
+				debugTris[i].point1.y,
+				debugTris[i].point1.z,
+				debugTris[i].point2.x,
+				debugTris[i].point2.y,
+				debugTris[i].point2.z,
+				debugTris[i].point3.x,
+				debugTris[i].point3.y,
+				debugTris[i].point3.z
+			};
+			for (int j = 0; j < floatsPerTri; j++)
+			{
+				triVertices[vertexIx + j] = floats[j];
+			}
+		}
+
+		unsigned int debugLineVAO, debugLineVBO, debugTriVAO, debugTriVBO;
+
+		glGenVertexArrays(1, &debugLineVAO);
+		glGenBuffers(1, &debugLineVBO);
+		glGenVertexArrays(1, &debugTriVAO);
+		glGenBuffers(1, &debugTriVBO);
+
+		glBindVertexArray(debugLineVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, debugLineVBO);
+		glBufferData(GL_ARRAY_BUFFER, numDebugLines * floatsPerLine * sizeof(float), &lineVertices[0], GL_STATIC_DRAW);
+
+		// vertex positions
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
+		glBindVertexArray(debugTriVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, debugTriVBO);
+		glBufferData(GL_ARRAY_BUFFER, numDebugTris * floatsPerTri * sizeof(float), &triVertices[0], GL_STATIC_DRAW);
+
+		// vertex positions
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
 		// Rendering logic
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -257,6 +318,12 @@ int main()
 			lightShader.setMat4("model", model);
 			entities.models[i].Draw(lightShader);
 		}
+
+		glBindVertexArray(debugLineVAO);
+		glDrawArrays(GL_LINES, 0, numDebugLines);
+		glBindVertexArray(debugTriVAO);
+		glDrawArrays(GL_TRIANGLES, 0, numDebugTris);
+
 
 		// draw skybox last
 		glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
