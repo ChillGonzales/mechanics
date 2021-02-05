@@ -144,7 +144,7 @@ int main()
 	entities.render_transform[0] = ballTransform;
 	auto rBody = world->createRigidBody(ballTransform);
 	rBody->setType(BodyType::DYNAMIC);
-	meshes.bodies[0] = rBody;
+	entities.bodies[0] = rBody;
 	float radius = 10.0f;
 	// TODO: how to get physics shapes to match extents of meshes?
 	SphereShape* sphereShape = common.createSphereShape(radius);
@@ -215,12 +215,12 @@ int main()
 
 		for (unsigned int i = 0; i < NUM_OBJECTS; i++)
 		{
-			const auto& currTrans = meshes.bodies[i]->getTransform();
+			const auto& currTrans = entities.bodies[i]->getTransform();
 			// Compute the interpolated transform of the rigid body 
-			Transform interpolatedTransform = Transform::interpolateTransforms(meshes.prev_transforms[i], currTrans, factor);
+			Transform interpolatedTransform = Transform::interpolateTransforms(entities.prev_transforms[i], currTrans, factor);
 
 			// Update the previous transform 
-			meshes.prev_transforms[i] = currTrans;
+			entities.prev_transforms[i] = currTrans;
 		}
 
 		auto numDebugLines = debugRenderer.getNbLines();
