@@ -54,7 +54,7 @@ struct EntityState
 
 	// Rendering
 	Model models[NUM_OBJECTS];
-	Transform render_transform[NUM_OBJECTS];
+	Transform render_transforms[NUM_OBJECTS];
 };
 
 int main()
@@ -137,18 +137,20 @@ int main()
 	world->setNbIterationsPositionSolver(8);
 	DebugRenderer& debugRenderer = world->getDebugRenderer();
 	debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
+	debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLIDER_AABB, true);
+	debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLIDER_BROADPHASE_AABB, true);
 
 	// Rigidbody setup
 	auto ballTransform = Transform(Vector3(0.0f, 30.0f, 0.0f), Quaternion::identity());
 	entities.prev_transforms[0] = ballTransform;
-	entities.render_transform[0] = ballTransform;
+	entities.render_transforms[0] = ballTransform;
 	auto rBody = world->createRigidBody(ballTransform);
 	rBody->setType(BodyType::DYNAMIC);
 	entities.bodies[0] = rBody;
 	float radius = 10.0f;
 	// TODO: how to get physics shapes to match extents of meshes?
 	SphereShape* sphereShape = common.createSphereShape(radius);
-	BoxShape* boxShape = common.createBoxShape(Vector3(20.0f, 1.0f, 20.0f));
+	BoxShape* boxShape = common.createBoxShape(Vector3(50.0f, 1.0f, 50.0f));
 	CapsuleShape* capsuleShape = common.createCapsuleShape(3.0f, 8.0f);
 
 	// Relative transform of the collider relative to the body origin 
@@ -180,7 +182,7 @@ int main()
 	{
 		auto trans = Transform(positions[i - 1], Quaternion::fromEulerAngles(angles[i - 1]));
 		entities.prev_transforms[i] = trans;
-		entities.render_transform[i] = trans;
+		entities.render_transforms[i] = trans;
 		auto rBody = world->createRigidBody(trans);
 		rBody->setType(BodyType::STATIC);
 		entities.bodies[i] = rBody;
@@ -191,8 +193,8 @@ int main()
 	// Init variables for main loop
 	float accumulator = 0.0f;
 	float modelMatrix[16];
-	const unsigned int floatsPerLine = 2 * 3;
-	const unsigned int floatsPerTri = 3 * 3;
+	const int floatsPerLine = 2 * 3;
+	const int floatsPerTri = 3 * 3;
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -201,6 +203,8 @@ int main()
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
 		processInput(window);
+
+		cameraBody->setTransform(Transform(toPhysVec(camera.Position), Quaternion::identity()));
 
 		accumulator += deltaTime;
 		while (accumulator >= _physicsTimestep)
@@ -221,6 +225,7 @@ int main()
 
 			// Update the previous transform 
 			entities.prev_transforms[i] = currTrans;
+			entities.render_transforms[i] = interpolatedTransform;
 		}
 
 		auto numDebugLines = debugRenderer.getNbLines();
@@ -246,7 +251,8 @@ int main()
 			}
 		}
 		auto numDebugTris = debugRenderer.getNbTriangles();
-		float* triVertices = new float[floatsPerTri * numDebugTris];
+		auto vertexLength = double(floatsPerTri) * numDebugTris;
+		float* triVertices = new float[vertexLength];
 		if (numDebugTris > 0)
 		{
 			auto* debugTris = debugRenderer.getTrianglesArray();
@@ -280,7 +286,7 @@ int main()
 
 		glBindVertexArray(debugLineVAO);
 		glBindBuffer(GL_ARRAY_BUFFER, debugLineVBO);
-		glBufferData(GL_ARRAY_BUFFER, numDebugLines * floatsPerLine * sizeof(float), &lineVertices[0], GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, double(numDebugLines) * floatsPerLine * sizeof(float), &lineVertices[0], GL_STATIC_DRAW);
 
 		// vertex positions
 		glEnableVertexAttribArray(0);
@@ -288,7 +294,7 @@ int main()
 
 		glBindVertexArray(debugTriVAO);
 		glBindBuffer(GL_ARRAY_BUFFER, debugTriVBO);
-		glBufferData(GL_ARRAY_BUFFER, numDebugTris * floatsPerTri * sizeof(float), &triVertices[0], GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, double(numDebugTris) * floatsPerTri * sizeof(float), &triVertices[0], GL_STATIC_DRAW);
 
 		// vertex positions
 		glEnableVertexAttribArray(0);
@@ -315,7 +321,7 @@ int main()
 		lightShader.setMat4("projection", projection);
 		for (unsigned int i = 0; i < NUM_OBJECTS; i++)
 		{
-			entities.render_transform[i].getOpenGLMatrix(modelMatrix);
+			entities.render_transforms[i].getOpenGLMatrix(modelMatrix);
 			glm::mat4 model = glm::make_mat4(modelMatrix);
 			model = glm::translate(model, modelOffsets[i]);
 			//model = glm::translate(model, trans.getPosition()); // add the translation from our source of truth translation to the model matrix
@@ -324,7 +330,11 @@ int main()
 			entities.models[i].Draw(lightShader);
 		}
 
+		glDisable(GL_DEPTH_TEST);
 		lampShader.use();
+		lampShader.setMat4("projection", projection);
+		lampShader.setMat4("view", view);
+		lampShader.setMat4("model", glm::mat4(1.0f));
 		if (numDebugLines > 0)
 		{
 			glBindVertexArray(debugLineVAO);
@@ -332,7 +342,7 @@ int main()
 		}
 		glBindVertexArray(debugTriVAO);
 		glDrawArrays(GL_TRIANGLES, 0, numDebugTris);
-
+		glEnable(GL_DEPTH_TEST);
 
 		// draw skybox last
 		glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
