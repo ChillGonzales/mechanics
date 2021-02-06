@@ -1,6 +1,7 @@
 #ifdef _MSC_VER
 #define _CRT_SECURE_NO_WARNINGS
 #endif
+#define PHY_DEBUG_RENDERING false
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -14,6 +15,7 @@
 #include <assimp/scene.h>
 #include <reactphysics3d/reactphysics3d.h>
 #include "skybox.h"
+#include "PhysicsDebugRenderer.h"
 using namespace reactphysics3d;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -135,10 +137,6 @@ int main()
 	// Defaults are 10 and 5 so if this is laggy then change it.
 	world->setNbIterationsVelocitySolver(15);
 	world->setNbIterationsPositionSolver(8);
-	DebugRenderer& debugRenderer = world->getDebugRenderer();
-	debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
-	debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLIDER_AABB, true);
-	debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLIDER_BROADPHASE_AABB, true);
 
 	// Rigidbody setup
 	auto ballTransform = Transform(Vector3(0.0f, 30.0f, 0.0f), Quaternion::identity());
@@ -150,8 +148,8 @@ int main()
 	float radius = 10.0f;
 	// TODO: how to get physics shapes to match extents of meshes?
 	SphereShape* sphereShape = common.createSphereShape(radius);
-	BoxShape* boxShape = common.createBoxShape(Vector3(50.0f, 1.0f, 50.0f));
-	CapsuleShape* capsuleShape = common.createCapsuleShape(3.0f, 8.0f);
+	BoxShape* boxShape = common.createBoxShape(Vector3(500.0f, 1.0f, 500.0f));
+	CapsuleShape* capsuleShape = common.createCapsuleShape(8.0f, 8.0f);
 
 	// Relative transform of the collider relative to the body origin 
 	Transform ident = Transform::identity();
@@ -193,8 +191,10 @@ int main()
 	// Init variables for main loop
 	float accumulator = 0.0f;
 	float modelMatrix[16];
-	const int floatsPerLine = 2 * 3;
-	const int floatsPerTri = 3 * 3;
+
+	#if PHY_DEBUG_RENDERING
+		PhysicsDebugRenderer phyDebugRenderer(world);
+	#endif
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -228,77 +228,9 @@ int main()
 			entities.render_transforms[i] = interpolatedTransform;
 		}
 
-		auto numDebugLines = debugRenderer.getNbLines();
-		float* lineVertices = new float[floatsPerLine * numDebugLines];
-		if (numDebugLines > 0)
-		{
-			auto* debugLines = debugRenderer.getLinesArray();
-			for (int i = 0; i < numDebugLines; i++)
-			{
-				int vertexIx = i * floatsPerLine;
-				float floats[floatsPerLine] = {
-					debugLines[i].point1.x,
-					debugLines[i].point1.y,
-					debugLines[i].point1.z,
-					debugLines[i].point2.x,
-					debugLines[i].point2.y,
-					debugLines[i].point2.z
-				};
-				for (int j = 0; j < floatsPerLine; j++)
-				{
-					lineVertices[vertexIx + j] = floats[j];
-				}
-			}
-		}
-		auto numDebugTris = debugRenderer.getNbTriangles();
-		auto vertexLength = double(floatsPerTri) * numDebugTris;
-		float* triVertices = new float[vertexLength];
-		if (numDebugTris > 0)
-		{
-			auto* debugTris = debugRenderer.getTrianglesArray();
-			for (int i = 0; i < numDebugTris; i++)
-			{
-				int vertexIx = i * floatsPerTri;
-				float floats[floatsPerTri] = {
-					debugTris[i].point1.x,
-					debugTris[i].point1.y,
-					debugTris[i].point1.z,
-					debugTris[i].point2.x,
-					debugTris[i].point2.y,
-					debugTris[i].point2.z,
-					debugTris[i].point3.x,
-					debugTris[i].point3.y,
-					debugTris[i].point3.z
-				};
-				for (int j = 0; j < floatsPerTri; j++)
-				{
-					triVertices[vertexIx + j] = floats[j];
-				}
-			}
-		}
-
-		unsigned int debugLineVAO, debugLineVBO, debugTriVAO, debugTriVBO;
-
-		glGenVertexArrays(1, &debugLineVAO);
-		glGenBuffers(1, &debugLineVBO);
-		glGenVertexArrays(1, &debugTriVAO);
-		glGenBuffers(1, &debugTriVBO);
-
-		glBindVertexArray(debugLineVAO);
-		glBindBuffer(GL_ARRAY_BUFFER, debugLineVBO);
-		glBufferData(GL_ARRAY_BUFFER, double(numDebugLines) * floatsPerLine * sizeof(float), &lineVertices[0], GL_STATIC_DRAW);
-
-		// vertex positions
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-
-		glBindVertexArray(debugTriVAO);
-		glBindBuffer(GL_ARRAY_BUFFER, debugTriVBO);
-		glBufferData(GL_ARRAY_BUFFER, double(numDebugTris) * floatsPerTri * sizeof(float), &triVertices[0], GL_STATIC_DRAW);
-
-		// vertex positions
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		#if PHY_DEBUG_RENDERING
+			phyDebugRenderer.updateDebugState();
+		#endif
 
 		// Rendering logic
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -330,19 +262,13 @@ int main()
 			entities.models[i].Draw(lightShader);
 		}
 
-		glDisable(GL_DEPTH_TEST);
-		lampShader.use();
-		lampShader.setMat4("projection", projection);
-		lampShader.setMat4("view", view);
-		lampShader.setMat4("model", glm::mat4(1.0f));
-		if (numDebugLines > 0)
-		{
-			glBindVertexArray(debugLineVAO);
-			glDrawArrays(GL_LINES, 0, numDebugLines);
-		}
-		glBindVertexArray(debugTriVAO);
-		glDrawArrays(GL_TRIANGLES, 0, numDebugTris);
-		glEnable(GL_DEPTH_TEST);
+		#if PHY_DEBUG_RENDERING
+			lampShader.use();
+			lampShader.setMat4("projection", projection);
+			lampShader.setMat4("view", view);
+			lampShader.setMat4("model", glm::mat4(1.0f));
+			phyDebugRenderer.draw();
+		#endif
 
 		// draw skybox last
 		glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
