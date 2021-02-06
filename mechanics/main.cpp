@@ -1,7 +1,8 @@
 #ifdef _MSC_VER
 #define _CRT_SECURE_NO_WARNINGS
 #endif
-#define PHY_DEBUG_RENDERING false
+#define _USE_MATH_DEFINES
+#define PHY_DEBUG_RENDERING true
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -15,7 +16,8 @@
 #include <assimp/scene.h>
 #include <reactphysics3d/reactphysics3d.h>
 #include "skybox.h"
-#include "PhysicsDebugRenderer.h"
+#include "physics_debug_renderer.h"
+#include <cmath>
 using namespace reactphysics3d;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -24,16 +26,19 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 void setupPointLights(Shader* shader);
 const Vector3 toPhysVec(glm::vec3 vec);
+const glm::vec3 toGlm(Vector3 vec);
 
 // settings
 const int SCR_WIDTH = 1920;
 const int SCR_HEIGHT = 1080;
-const int NUM_OBJECTS = 2;
+const int NUM_PHY_OBJECTS = 3;
+const int NUM_RENDER_OBJECTS = 2;
 const float _physicsTimestep = 1.0f / 60.0f;
+const int CAMERA_INDEX = 1;
 bool enablePhysics = false;
 
 // camera
-Camera camera(glm::vec3(0.0f, 5.0f, 15.0f));
+Camera camera(glm::vec3(15.0f, 10.0f, 15.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -45,18 +50,20 @@ float lastFrame = 0.0f;
 // positions
 glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 
-struct EntityState
+struct RenderingState
 {
-	// Shared
-	Transform prev_transforms[NUM_OBJECTS];
+	Model models[NUM_RENDER_OBJECTS];
+};
 
-	// Physics
-	RigidBody* bodies[NUM_OBJECTS];
-	Collider* colliders[NUM_OBJECTS];
+struct PhysicsState
+{
+	// Collision
+	RigidBody* bodies[NUM_PHY_OBJECTS];
+	Collider* colliders[NUM_PHY_OBJECTS];
 
-	// Rendering
-	Model models[NUM_OBJECTS];
-	Transform render_transforms[NUM_OBJECTS];
+	// Position
+	Transform prev_transforms[NUM_PHY_OBJECTS];
+	Transform render_transforms[NUM_PHY_OBJECTS];
 };
 
 int main()
@@ -117,14 +124,15 @@ int main()
 	skybox.init(faces);
 
 	// Set up our objects for physics and rendering
-	EntityState entities;
+	RenderingState renders;
+	PhysicsState physics;
 
 	auto ball = Model("assets/ball/ball.obj");
-	entities.models[0] = ball;
+	renders.models[0] = ball;
 
-	for (unsigned int i = 1; i < NUM_OBJECTS; i++)
+	for (unsigned int i = 1; i < NUM_RENDER_OBJECTS; i++)
 	{
-		entities.models[i] = Model("assets/plank/plank.obj");
+		renders.models[i] = Model("assets/plank/plank.obj");
 	}
 
 	// Create the world settings 
@@ -140,16 +148,16 @@ int main()
 
 	// Rigidbody setup
 	auto ballTransform = Transform(Vector3(0.0f, 30.0f, 0.0f), Quaternion::identity());
-	entities.prev_transforms[0] = ballTransform;
-	entities.render_transforms[0] = ballTransform;
+	physics.prev_transforms[0] = ballTransform;
+	physics.render_transforms[0] = ballTransform;
 	auto rBody = world->createRigidBody(ballTransform);
 	rBody->setType(BodyType::DYNAMIC);
-	entities.bodies[0] = rBody;
+	physics.bodies[0] = rBody;
 	float radius = 10.0f;
 	// TODO: how to get physics shapes to match extents of meshes?
 	SphereShape* sphereShape = common.createSphereShape(radius);
 	BoxShape* boxShape = common.createBoxShape(Vector3(500.0f, 1.0f, 500.0f));
-	CapsuleShape* capsuleShape = common.createCapsuleShape(8.0f, 8.0f);
+	CapsuleShape* capsuleShape = common.createCapsuleShape(3.0f, 8.0f);
 
 	// Relative transform of the collider relative to the body origin 
 	Transform ident = Transform::identity();
@@ -157,12 +165,16 @@ int main()
 	// Add the collider to the rigid body 
 	auto collider = rBody->addCollider(sphereShape, ident);
 	collider->getMaterial().setBounciness(0.6f);
-	entities.colliders[0] = collider;
+	physics.colliders[0] = collider;
 
 	auto cameraTransform = Transform(toPhysVec(camera.Position), Quaternion::identity());
 	auto cameraBody = world->createRigidBody(cameraTransform);
 	cameraBody->setType(BodyType::STATIC);
 	auto cameraCollider = cameraBody->addCollider(capsuleShape, ident);
+	physics.bodies[CAMERA_INDEX] = cameraBody;
+	physics.prev_transforms[CAMERA_INDEX] = cameraTransform;
+	physics.render_transforms[CAMERA_INDEX] = cameraTransform;
+	physics.colliders[CAMERA_INDEX] = cameraCollider;
 
 	Vector3 angles[] = {
 		Vector3(0.0f, 0.0f, 0.0f),
@@ -176,16 +188,16 @@ int main()
 		glm::vec3(0.0f, 0.0f, 0.0f),
 		glm::vec3(0.0f, 25.0f, 0.0f)
 	};
-	for (unsigned int i = 1; i < NUM_OBJECTS; i++)
+	for (unsigned int i = 2; i < NUM_PHY_OBJECTS; i++)
 	{
 		auto trans = Transform(positions[i - 1], Quaternion::fromEulerAngles(angles[i - 1]));
-		entities.prev_transforms[i] = trans;
-		entities.render_transforms[i] = trans;
+		physics.prev_transforms[i] = trans;
+		physics.render_transforms[i] = trans;
 		auto rBody = world->createRigidBody(trans);
 		rBody->setType(BodyType::STATIC);
-		entities.bodies[i] = rBody;
+		physics.bodies[i] = rBody;
 		auto coll = rBody->addCollider(boxShape, ident);
-		entities.colliders[i] = coll;
+		physics.colliders[i] = coll;
 	}
 
 	// Init variables for main loop
@@ -217,16 +229,32 @@ int main()
 		// Compute the time interpolation factor 
 		decimal factor = accumulator / _physicsTimestep;
 
-		for (unsigned int i = 0; i < NUM_OBJECTS; i++)
+		for (unsigned int i = 0; i < NUM_PHY_OBJECTS; i++)
 		{
-			const auto& currTrans = entities.bodies[i]->getTransform();
+			const auto& currTrans = physics.bodies[i]->getTransform();
 			// Compute the interpolated transform of the rigid body 
-			Transform interpolatedTransform = Transform::interpolateTransforms(entities.prev_transforms[i], currTrans, factor);
+			Transform interpolatedTransform = Transform::interpolateTransforms(physics.prev_transforms[i], currTrans, factor);
 
 			// Update the previous transform 
-			entities.prev_transforms[i] = currTrans;
-			entities.render_transforms[i] = interpolatedTransform;
+			physics.prev_transforms[i] = currTrans;
+			physics.render_transforms[i] = interpolatedTransform;
 		}
+
+		//auto cameraTran = physics.render_transforms[CAMERA_INDEX];
+		//camera.Position = toGlm(cameraTran.getPosition());
+
+		// yaw (z-axis rotation)
+		//auto q = cameraTran.getOrientation();
+		//double siny_cosp = 2 * (q.w * q.z + q.x * q.y);
+		//double cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
+		//camera.Yaw = std::atan2(siny_cosp, cosy_cosp);
+
+		//// pitch (y-axis rotation)
+		//double sinp = 2 * (q.w * q.y - q.z * q.x);
+		//if (std::abs(sinp) >= 1)
+		//	camera.Pitch = std::copysign(M_PI / 2, sinp); // use 90 degrees if out of range
+		//else
+		//	camera.Pitch = std::asin(sinp);
 
 		#if PHY_DEBUG_RENDERING
 			phyDebugRenderer.updateDebugState();
@@ -251,15 +279,15 @@ int main()
 		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 800.0f);
 		lightShader.setMat4("view", view);
 		lightShader.setMat4("projection", projection);
-		for (unsigned int i = 0; i < NUM_OBJECTS; i++)
+		for (unsigned int i = 0; i < NUM_RENDER_OBJECTS; i++)
 		{
-			entities.render_transforms[i].getOpenGLMatrix(modelMatrix);
+			physics.render_transforms[i].getOpenGLMatrix(modelMatrix);
 			glm::mat4 model = glm::make_mat4(modelMatrix);
 			model = glm::translate(model, modelOffsets[i]);
 			//model = glm::translate(model, trans.getPosition()); // add the translation from our source of truth translation to the model matrix
 			//model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
 			lightShader.setMat4("model", model);
-			entities.models[i].Draw(lightShader);
+			renders.models[i].Draw(lightShader);
 		}
 
 		#if PHY_DEBUG_RENDERING
@@ -289,9 +317,9 @@ int main()
 	}
 
 	// Clean up physics memory
-	for (unsigned int i = 0; i < NUM_OBJECTS; i++)
+	for (unsigned int i = 0; i < NUM_PHY_OBJECTS; i++)
 	{
-		world->destroyRigidBody(entities.bodies[i]);
+		world->destroyRigidBody(physics.bodies[i]);
 	}
 	common.destroyPhysicsWorld(world);
 
@@ -374,4 +402,9 @@ void setupPointLights(Shader* shader)
 const Vector3 toPhysVec(glm::vec3 vec)
 {
 	return Vector3(vec.x, vec.y, vec.z);
+}
+
+const glm::vec3 toGlm(Vector3 vec)
+{
+	return glm::vec3(vec.x, vec.y, vec.z);
 }

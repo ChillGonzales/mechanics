@@ -57,7 +57,8 @@ struct PhysicsDebugRenderer
 		if (lineVertices == nullptr || lineNb != numDebugLines)
 		{
 			numDebugLines = lineNb;
-			lineVertices = new float[floatsPerLine * numDebugLines];
+			auto vertexLength = double(floatsPerLine) * numDebugLines;
+			lineVertices = new float[vertexLength];
 		}
 		if (numDebugLines > 0)
 		{

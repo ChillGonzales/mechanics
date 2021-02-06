@@ -44,7 +44,7 @@
     <ClInclude Include="skybox.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="PhysicsDebugRenderer.h">
+    <ClInclude Include="physics_debug_renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
