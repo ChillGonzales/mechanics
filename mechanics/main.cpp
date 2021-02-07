@@ -31,13 +31,13 @@ const glm::vec3 toGlm(Vector3 vec);
 // settings
 const int SCR_WIDTH = 1920;
 const int SCR_HEIGHT = 1080;
-const int NUM_PHY_OBJECTS = 6;
+const int NUM_PHY_OBJECTS = 3;
 const int NUM_RENDER_OBJECTS = 2;
 const float _physicsTimestep = 1.0f / 60.0f;
 const int CAMERA_INDEX = NUM_PHY_OBJECTS - 1;
 
 // camera
-Camera camera(glm::vec3(0.0f, 15.0f, 0.0f));
+Camera camera(glm::vec3(10.0f, -30.0f, 0.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -133,6 +133,7 @@ int main()
 	for (unsigned int i = 1; i < NUM_RENDER_OBJECTS; i++)
 	{
 		renders.models[i] = Model("assets/plank/plank.obj");
+		renders.transforms[i] = Transform(Vector3::zero(), Quaternion::identity());
 	}
 
 	// Create the world settings 
@@ -147,16 +148,17 @@ int main()
 	world->setNbIterationsPositionSolver(8);
 
 	// Rigidbody setup
-	auto ballTransform = Transform(Vector3(0.0f, 30.0f, -50.0f), Quaternion::identity());
+	auto ballTransform = Transform(Vector3(15.0f, 30.0f, -50.0f), Quaternion::identity());
 	physics.prev_transforms[0] = ballTransform;
 	renders.transforms[0] = ballTransform;
 	auto rBody = world->createRigidBody(ballTransform);
 	rBody->setType(BodyType::DYNAMIC);
 	physics.bodies[0] = rBody;
-	float radius = 10.0f;
+	float radius = 3.0f;
 	// TODO: how to get physics shapes to match extents of meshes?
 	SphereShape* sphereShape = common.createSphereShape(radius);
-	BoxShape* boxShape = common.createBoxShape(Vector3(50.0f, 1.0f, 50.0f));
+	Vector3 wallExtents(125.0f, 1.0f, 125.0f);
+	BoxShape* boxShape = common.createBoxShape(wallExtents);
 	CapsuleShape* capsuleShape = common.createCapsuleShape(3.0f, 8.0f);
 
 	// Relative transform of the collider relative to the body origin 
@@ -175,31 +177,30 @@ int main()
 	physics.prev_transforms[CAMERA_INDEX] = cameraTransform;
 	physics.colliders[CAMERA_INDEX] = cameraCollider;
 
-	Vector3 angles[] = {
+	const auto envCount = NUM_PHY_OBJECTS - 2;
+	Vector3 angles[envCount] = {
 		Vector3(0.0f, 0.0f, 0.0f),
-		Vector3(0.0f, 0.0f, 0.0f),
-		Vector3(0.0f, 0.0f, 0.0f),
-		Vector3(0.0f, 0.0f, 0.0f),
-		Vector3(0.0f, 0.0f, 0.0f),
-		//Vector3(0.0f, 0.0f, glm::radians(-90.0f)),
-		//Vector3(0.0f, 0.0f, glm::radians(90.0f)),
-		//Vector3(0.0f, glm::radians(90.0f), glm::radians(90.0f)),
-		//Vector3(0.0f, glm::radians(90.0f), glm::radians(90.0f))
+		//Vector3(0.0f, 0.0f, 0.0f),
+		//Vector3(0.0f, 0.0f, 0.0f),
+		//Vector3(0.0f, 0.0f, 0.0f),
+		//Vector3(0.0f, 0.0f, 0.0f),
 	};
-	Vector3 positions[] = {
-		Vector3(25.0f, -50.0f, -25.0f), // floor
-		Vector3(25.0f, -50.0f, -75.0f), // floor
-		Vector3(75.0f, -50.0f, -25.0f), // floor
-		Vector3(125.0f, -50.0f, -25.0f), // floor
-		Vector3(125.0f, -50.0f, -75.0f), // floor
-		//Vector3(0.0f, 25.0f, -25.0f), // left wall
-		//Vector3(50.0f, 25.0f, -25.0f), // right wall
-		//Vector3(25.0f, 25.0f, 0.0f), // front wall
-		//Vector3(25.0f, 25.0f, -50.0f) // back wall
+
+	Vector3 start(wallExtents.x / 2, -25.0f, -1.0f * (wallExtents.z / 2));
+	Vector3 positions[envCount] = {
+		start,
+		//Vector3(50.0f, -50.0f, -25.0f), // floor
+		//Vector3(50.0f, -50.0f, -25.0f), // floor
+		//Vector3(50.0f, -50.0f, -25.0f), // floor
+		//Vector3(50.0f, -50.0f, -25.0f), // floor
+		//Vector3(25.0f, -50.0f, -75.0f), // left wall
+		//Vector3(125.0f, -50.0f, -25.0f), // right wall
+		//Vector3(125.0f, -50.0f, -75.0f), // front wall
+		//Vector3(125.0f, -50.0f, -75.0f), // back wall
 	};
 	glm::vec3 modelOffsets[] = {
 		glm::vec3(0.0f, 0.0f, 0.0f),
-		glm::vec3(0.0f, 25.0f, 0.0f)
+		glm::vec3(0.0f, 0.0f, 0.0f)
 	};
 	// Start at 1 because we set up the ball collider manually
 	// Stop before the end because we set up the camera collider manually
@@ -212,11 +213,6 @@ int main()
 		physics.bodies[i] = rBody;
 		auto coll = rBody->addCollider(boxShape, ident);
 		physics.colliders[i] = coll;
-	}
-
-	for (unsigned int i = 0; i < NUM_RENDER_OBJECTS; i++)
-	{
-		renders.transforms[i] = physics.prev_transforms[i];
 	}
 
 	// Init variables for main loop

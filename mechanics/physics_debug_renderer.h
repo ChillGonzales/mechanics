@@ -12,15 +12,15 @@ struct PhysicsDebugRenderer
 	float* lineVertices = nullptr;
 	float* triVertices = nullptr;
 	unsigned int debugLineVAO, debugLineVBO, debugTriVAO, debugTriVBO;
-	int numDebugLines = 0;
-	int numDebugTris = 0;
+	int numLineVertices = 0;
+	int numTriVertices = 0;
 
 	PhysicsDebugRenderer(PhysicsWorld* world)
 	{
 		debugRenderer = &world->getDebugRenderer();
 		debugRenderer->setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
 		debugRenderer->setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLIDER_AABB, true);
-		debugRenderer->setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLIDER_BROADPHASE_AABB, true);
+		//debugRenderer->setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLIDER_BROADPHASE_AABB, true);
 
 		// Init render buffers
 		glGenVertexArrays(1, &debugLineVAO);
@@ -35,15 +35,15 @@ struct PhysicsDebugRenderer
 		{
 			glDisable(GL_DEPTH_TEST);
 		}
-		if (numDebugLines > 0)
+		if (numLineVertices > 0)
 		{
 			glBindVertexArray(debugLineVAO);
-			glDrawArrays(GL_LINES, 0, numDebugLines);
+			glDrawArrays(GL_LINES, 0, numLineVertices);
 		}
-		if (numDebugTris > 0)
+		if (numTriVertices > 0)
 		{
-			glBindVertexArray(debugTriVAO);
-			glDrawArrays(GL_TRIANGLES, 0, numDebugTris);
+			//glBindVertexArray(debugTriVAO);
+			//glDrawArrays(GL_TRIANGLES, 0, numTriVertices);
 		}
 		if (disableDepthTest)
 		{
@@ -53,17 +53,17 @@ struct PhysicsDebugRenderer
 
 	void updateDebugState()
 	{
-		auto lineNb = debugRenderer->getNbLines();
-		if (lineVertices == nullptr || lineNb != numDebugLines)
+		auto nbLines = debugRenderer->getNbLines();
+		auto lineVtxCount = double(floatsPerLine) * nbLines;
+		if (lineVertices == nullptr || lineVtxCount != numLineVertices)
 		{
-			numDebugLines = lineNb;
-			auto vertexLength = double(floatsPerLine) * numDebugLines;
-			lineVertices = new float[vertexLength];
+			numLineVertices = lineVtxCount;
+			lineVertices = new float[numLineVertices];
 		}
-		if (numDebugLines > 0)
+		if (numLineVertices > 0)
 		{
 			auto* debugLines = debugRenderer->getLinesArray();
-			for (int i = 0; i < numDebugLines; i++)
+			for (int i = 0; i < nbLines; i++)
 			{
 				int vertexIx = i * floatsPerLine;
 				float floats[floatsPerLine] = {
@@ -80,17 +80,18 @@ struct PhysicsDebugRenderer
 				}
 			}
 		}
-		auto triNb = debugRenderer->getNbTriangles();
-		if (triVertices == nullptr || triNb != numDebugTris)
+
+		auto nbTris = debugRenderer->getNbTriangles();
+		auto triVtxCount = double(floatsPerTri) * nbTris;
+		if (triVertices == nullptr || triVtxCount != numTriVertices)
 		{
-			numDebugTris = triNb;
-			auto vertexLength = double(floatsPerTri) * numDebugTris;
-			triVertices = new float[vertexLength];
+			numTriVertices = triVtxCount;
+			triVertices = new float[numTriVertices];
 		}
-		if (numDebugTris > 0)
+		if (numTriVertices > 0)
 		{
 			auto* debugTris = debugRenderer->getTrianglesArray();
-			for (int i = 0; i < numDebugTris; i++)
+			for (int i = 0; i < nbTris; i++)
 			{
 				int vertexIx = i * floatsPerTri;
 				float floats[floatsPerTri] = {
@@ -113,7 +114,7 @@ struct PhysicsDebugRenderer
 
 		glBindVertexArray(debugLineVAO);
 		glBindBuffer(GL_ARRAY_BUFFER, debugLineVBO);
-		glBufferData(GL_ARRAY_BUFFER, double(numDebugLines) * floatsPerLine * sizeof(float), &lineVertices[0], GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, numLineVertices * sizeof(float), &lineVertices[0], GL_STATIC_DRAW);
 
 		// line vertex positions
 		glEnableVertexAttribArray(0);
@@ -121,7 +122,7 @@ struct PhysicsDebugRenderer
 
 		glBindVertexArray(debugTriVAO);
 		glBindBuffer(GL_ARRAY_BUFFER, debugTriVBO);
-		glBufferData(GL_ARRAY_BUFFER, double(numDebugTris) * floatsPerTri * sizeof(float), &triVertices[0], GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, numTriVertices * sizeof(float), &triVertices[0], GL_STATIC_DRAW);
 
 		// tri vertex positions
 		glEnableVertexAttribArray(0);
