@@ -31,14 +31,13 @@ const glm::vec3 toGlm(Vector3 vec);
 // settings
 const int SCR_WIDTH = 1920;
 const int SCR_HEIGHT = 1080;
-const int NUM_PHY_OBJECTS = 3;
+const int NUM_PHY_OBJECTS = 6;
 const int NUM_RENDER_OBJECTS = 2;
 const float _physicsTimestep = 1.0f / 60.0f;
-const int CAMERA_INDEX = 1;
-bool enablePhysics = false;
+const int CAMERA_INDEX = NUM_PHY_OBJECTS - 1;
 
 // camera
-Camera camera(glm::vec3(15.0f, 10.0f, 15.0f));
+Camera camera(glm::vec3(0.0f, 15.0f, 0.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -53,6 +52,7 @@ glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 struct RenderingState
 {
 	Model models[NUM_RENDER_OBJECTS];
+	Transform transforms[NUM_RENDER_OBJECTS];
 };
 
 struct PhysicsState
@@ -63,7 +63,6 @@ struct PhysicsState
 
 	// Position
 	Transform prev_transforms[NUM_PHY_OBJECTS];
-	Transform render_transforms[NUM_PHY_OBJECTS];
 };
 
 int main()
@@ -96,6 +95,7 @@ int main()
 
 	glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_FRAMEBUFFER_SRGB);
 
 	// Register a callback for when the user resizes the window to tell open GL the new window size
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -147,16 +147,16 @@ int main()
 	world->setNbIterationsPositionSolver(8);
 
 	// Rigidbody setup
-	auto ballTransform = Transform(Vector3(0.0f, 30.0f, 0.0f), Quaternion::identity());
+	auto ballTransform = Transform(Vector3(0.0f, 30.0f, -50.0f), Quaternion::identity());
 	physics.prev_transforms[0] = ballTransform;
-	physics.render_transforms[0] = ballTransform;
+	renders.transforms[0] = ballTransform;
 	auto rBody = world->createRigidBody(ballTransform);
 	rBody->setType(BodyType::DYNAMIC);
 	physics.bodies[0] = rBody;
 	float radius = 10.0f;
 	// TODO: how to get physics shapes to match extents of meshes?
 	SphereShape* sphereShape = common.createSphereShape(radius);
-	BoxShape* boxShape = common.createBoxShape(Vector3(500.0f, 1.0f, 500.0f));
+	BoxShape* boxShape = common.createBoxShape(Vector3(50.0f, 1.0f, 50.0f));
 	CapsuleShape* capsuleShape = common.createCapsuleShape(3.0f, 8.0f);
 
 	// Relative transform of the collider relative to the body origin 
@@ -173,26 +173,40 @@ int main()
 	auto cameraCollider = cameraBody->addCollider(capsuleShape, ident);
 	physics.bodies[CAMERA_INDEX] = cameraBody;
 	physics.prev_transforms[CAMERA_INDEX] = cameraTransform;
-	physics.render_transforms[CAMERA_INDEX] = cameraTransform;
 	physics.colliders[CAMERA_INDEX] = cameraCollider;
 
 	Vector3 angles[] = {
 		Vector3(0.0f, 0.0f, 0.0f),
-		Vector3(0.0f, 0.0f, 0.0f)
+		Vector3(0.0f, 0.0f, 0.0f),
+		Vector3(0.0f, 0.0f, 0.0f),
+		Vector3(0.0f, 0.0f, 0.0f),
+		Vector3(0.0f, 0.0f, 0.0f),
+		//Vector3(0.0f, 0.0f, glm::radians(-90.0f)),
+		//Vector3(0.0f, 0.0f, glm::radians(90.0f)),
+		//Vector3(0.0f, glm::radians(90.0f), glm::radians(90.0f)),
+		//Vector3(0.0f, glm::radians(90.0f), glm::radians(90.0f))
 	};
 	Vector3 positions[] = {
-		Vector3(0.0f, 0.0f, 0.0f),
-		Vector3(0.0f, 60.0f, 0.0f)
+		Vector3(25.0f, -50.0f, -25.0f), // floor
+		Vector3(25.0f, -50.0f, -75.0f), // floor
+		Vector3(75.0f, -50.0f, -25.0f), // floor
+		Vector3(125.0f, -50.0f, -25.0f), // floor
+		Vector3(125.0f, -50.0f, -75.0f), // floor
+		//Vector3(0.0f, 25.0f, -25.0f), // left wall
+		//Vector3(50.0f, 25.0f, -25.0f), // right wall
+		//Vector3(25.0f, 25.0f, 0.0f), // front wall
+		//Vector3(25.0f, 25.0f, -50.0f) // back wall
 	};
 	glm::vec3 modelOffsets[] = {
 		glm::vec3(0.0f, 0.0f, 0.0f),
 		glm::vec3(0.0f, 25.0f, 0.0f)
 	};
-	for (unsigned int i = 2; i < NUM_PHY_OBJECTS; i++)
+	// Start at 1 because we set up the ball collider manually
+	// Stop before the end because we set up the camera collider manually
+	for (unsigned int i = 1; i < (NUM_PHY_OBJECTS - 1); i++)
 	{
 		auto trans = Transform(positions[i - 1], Quaternion::fromEulerAngles(angles[i - 1]));
 		physics.prev_transforms[i] = trans;
-		physics.render_transforms[i] = trans;
 		auto rBody = world->createRigidBody(trans);
 		rBody->setType(BodyType::STATIC);
 		physics.bodies[i] = rBody;
@@ -200,12 +214,17 @@ int main()
 		physics.colliders[i] = coll;
 	}
 
+	for (unsigned int i = 0; i < NUM_RENDER_OBJECTS; i++)
+	{
+		renders.transforms[i] = physics.prev_transforms[i];
+	}
+
 	// Init variables for main loop
 	float accumulator = 0.0f;
 	float modelMatrix[16];
 
 	#if PHY_DEBUG_RENDERING
-		PhysicsDebugRenderer phyDebugRenderer(world);
+	PhysicsDebugRenderer phyDebugRenderer(world);
 	#endif
 
 	while (!glfwWindowShouldClose(window))
@@ -215,6 +234,8 @@ int main()
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
 		processInput(window);
+
+		cout << "Camera position. X: " << camera.Position.x << " Y: " << camera.Position.y << " Z: " << camera.Position.z << endl;
 
 		cameraBody->setTransform(Transform(toPhysVec(camera.Position), Quaternion::identity()));
 
@@ -237,27 +258,14 @@ int main()
 
 			// Update the previous transform 
 			physics.prev_transforms[i] = currTrans;
-			physics.render_transforms[i] = interpolatedTransform;
+			if (i < (NUM_RENDER_OBJECTS - 1))
+			{
+				renders.transforms[i] = interpolatedTransform;
+			}
 		}
 
-		//auto cameraTran = physics.render_transforms[CAMERA_INDEX];
-		//camera.Position = toGlm(cameraTran.getPosition());
-
-		// yaw (z-axis rotation)
-		//auto q = cameraTran.getOrientation();
-		//double siny_cosp = 2 * (q.w * q.z + q.x * q.y);
-		//double cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
-		//camera.Yaw = std::atan2(siny_cosp, cosy_cosp);
-
-		//// pitch (y-axis rotation)
-		//double sinp = 2 * (q.w * q.y - q.z * q.x);
-		//if (std::abs(sinp) >= 1)
-		//	camera.Pitch = std::copysign(M_PI / 2, sinp); // use 90 degrees if out of range
-		//else
-		//	camera.Pitch = std::asin(sinp);
-
 		#if PHY_DEBUG_RENDERING
-			phyDebugRenderer.updateDebugState();
+		phyDebugRenderer.updateDebugState();
 		#endif
 
 		// Rendering logic
@@ -281,7 +289,7 @@ int main()
 		lightShader.setMat4("projection", projection);
 		for (unsigned int i = 0; i < NUM_RENDER_OBJECTS; i++)
 		{
-			physics.render_transforms[i].getOpenGLMatrix(modelMatrix);
+			renders.transforms[i].getOpenGLMatrix(modelMatrix);
 			glm::mat4 model = glm::make_mat4(modelMatrix);
 			model = glm::translate(model, modelOffsets[i]);
 			//model = glm::translate(model, trans.getPosition()); // add the translation from our source of truth translation to the model matrix
@@ -289,14 +297,6 @@ int main()
 			lightShader.setMat4("model", model);
 			renders.models[i].Draw(lightShader);
 		}
-
-		#if PHY_DEBUG_RENDERING
-			lampShader.use();
-			lampShader.setMat4("projection", projection);
-			lampShader.setMat4("view", view);
-			lampShader.setMat4("model", glm::mat4(1.0f));
-			phyDebugRenderer.draw();
-		#endif
 
 		// draw skybox last
 		glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
@@ -311,6 +311,14 @@ int main()
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 		glBindVertexArray(0);
 		glDepthFunc(GL_LESS); // set depth function back to default
+
+		#if PHY_DEBUG_RENDERING
+		lampShader.use();
+		lampShader.setMat4("projection", projection);
+		lampShader.setMat4("view", view);
+		lampShader.setMat4("model", glm::mat4(1.0f));
+		phyDebugRenderer.draw();
+		#endif
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -372,8 +380,6 @@ void processInput(GLFWwindow* window)
 		camera.ProcessKeyboard(DOWN, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
 		camera.ProcessKeyboard(UP, deltaTime);
-	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-		enablePhysics = true;
 }
 
 void setupPointLights(Shader* shader)

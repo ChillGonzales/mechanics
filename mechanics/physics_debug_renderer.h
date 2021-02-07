@@ -9,8 +9,8 @@ struct PhysicsDebugRenderer
 	DebugRenderer* debugRenderer;
 	static const int floatsPerLine = 2 * 3;
 	static const int floatsPerTri = 3 * 3;
-	float* lineVertices;
-	float* triVertices;
+	float* lineVertices = nullptr;
+	float* triVertices = nullptr;
 	unsigned int debugLineVAO, debugLineVBO, debugTriVAO, debugTriVBO;
 	int numDebugLines = 0;
 	int numDebugTris = 0;
