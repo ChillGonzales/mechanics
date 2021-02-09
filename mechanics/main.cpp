@@ -2,7 +2,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 #define _USE_MATH_DEFINES
-#define PHY_DEBUG_RENDERING true
+#define PHY_DEBUG_RENDERING false
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -31,13 +31,13 @@ const glm::vec3 toGlm(Vector3 vec);
 // settings
 const int SCR_WIDTH = 1920;
 const int SCR_HEIGHT = 1080;
-const int NUM_PHY_OBJECTS = 3;
+const int NUM_PHY_OBJECTS = 7;
 const int NUM_RENDER_OBJECTS = 2;
 const float _physicsTimestep = 1.0f / 60.0f;
 const int CAMERA_INDEX = NUM_PHY_OBJECTS - 1;
 
 // camera
-Camera camera(glm::vec3(10.0f, -30.0f, 0.0f));
+Camera camera(glm::vec3(10.0f, -10.0f, 0.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -157,8 +157,10 @@ int main()
 	float radius = 3.0f;
 	// TODO: how to get physics shapes to match extents of meshes?
 	SphereShape* sphereShape = common.createSphereShape(radius);
-	Vector3 wallExtents(125.0f, 1.0f, 125.0f);
-	BoxShape* boxShape = common.createBoxShape(wallExtents);
+	Vector3 floorExtents(160.0f, 1.0f, 160.0f);
+	Vector3 wallExtents(75.0, 1.0f, floorExtents.z);
+	BoxShape* floorShape = common.createBoxShape(floorExtents);
+	BoxShape* wallShape = common.createBoxShape(wallExtents);
 	CapsuleShape* capsuleShape = common.createCapsuleShape(3.0f, 8.0f);
 
 	// Relative transform of the collider relative to the body origin 
@@ -177,30 +179,31 @@ int main()
 	physics.prev_transforms[CAMERA_INDEX] = cameraTransform;
 	physics.colliders[CAMERA_INDEX] = cameraCollider;
 
+	constexpr float rad90 = glm::radians(90.0f);
 	const auto envCount = NUM_PHY_OBJECTS - 2;
 	Vector3 angles[envCount] = {
 		Vector3(0.0f, 0.0f, 0.0f),
-		//Vector3(0.0f, 0.0f, 0.0f),
-		//Vector3(0.0f, 0.0f, 0.0f),
-		//Vector3(0.0f, 0.0f, 0.0f),
-		//Vector3(0.0f, 0.0f, 0.0f),
+		Vector3(0.0f, 0.0f, rad90),
+		Vector3(rad90, 0.0f, rad90),
+		Vector3(0.0f, 0.0f, rad90),
+		Vector3(rad90, 0.0f, rad90),
 	};
 
-	Vector3 start(wallExtents.x / 2, -25.0f, -1.0f * (wallExtents.z / 2));
+	Vector3 origin(25.0f, -25.0f, -25.0f);
+	Vector3 start(25.0f + floorExtents.x / 2, -25.0f, -25.0f + -1.0f * (floorExtents.z / 2));
 	Vector3 positions[envCount] = {
-		start,
-		//Vector3(50.0f, -50.0f, -25.0f), // floor
-		//Vector3(50.0f, -50.0f, -25.0f), // floor
-		//Vector3(50.0f, -50.0f, -25.0f), // floor
-		//Vector3(50.0f, -50.0f, -25.0f), // floor
-		//Vector3(25.0f, -50.0f, -75.0f), // left wall
-		//Vector3(125.0f, -50.0f, -25.0f), // right wall
-		//Vector3(125.0f, -50.0f, -75.0f), // front wall
-		//Vector3(125.0f, -50.0f, -75.0f), // back wall
+		Vector3(origin.x + floorExtents.x / 2, origin.y, origin.z + -1.0f * (floorExtents.z / 2)), // floor
+		Vector3(origin.x - floorExtents.x / 2, floorExtents.y, origin.z - floorExtents.z / 2), // left wall
+		Vector3(origin.x + floorExtents.x / 2, floorExtents.y, 4 * origin.z - floorExtents.z), // back wall
+		Vector3(4 * origin.x + floorExtents.x, floorExtents.y, origin.z - floorExtents.z / 2), // right wall
+		Vector3(origin.x + floorExtents.x / 2, floorExtents.y, origin.z + floorExtents.z / 2), // front wall
 	};
-	glm::vec3 modelOffsets[] = {
-		glm::vec3(0.0f, 0.0f, 0.0f),
-		glm::vec3(0.0f, 0.0f, 0.0f)
+	BoxShape* boxShapes[envCount] = {
+		floorShape,
+		wallShape,
+		wallShape,
+		wallShape,
+		wallShape,
 	};
 	// Start at 1 because we set up the ball collider manually
 	// Stop before the end because we set up the camera collider manually
@@ -211,7 +214,7 @@ int main()
 		auto rBody = world->createRigidBody(trans);
 		rBody->setType(BodyType::STATIC);
 		physics.bodies[i] = rBody;
-		auto coll = rBody->addCollider(boxShape, ident);
+		auto coll = rBody->addCollider(boxShapes[i - 1], ident);
 		physics.colliders[i] = coll;
 	}
 
@@ -287,7 +290,6 @@ int main()
 		{
 			renders.transforms[i].getOpenGLMatrix(modelMatrix);
 			glm::mat4 model = glm::make_mat4(modelMatrix);
-			model = glm::translate(model, modelOffsets[i]);
 			//model = glm::translate(model, trans.getPosition()); // add the translation from our source of truth translation to the model matrix
 			//model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
 			lightShader.setMat4("model", model);
