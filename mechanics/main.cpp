@@ -2,7 +2,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 #define _USE_MATH_DEFINES
-#define PHY_DEBUG_RENDERING false
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -27,6 +26,15 @@ void processInput(GLFWwindow* window);
 void setupPointLights(Shader* shader);
 const Vector3 toPhysVec(glm::vec3 vec);
 const glm::vec3 toGlm(Vector3 vec);
+bool USE_PHY_DEBUG_RENDERING = false;
+
+// Enumeration for categories 
+enum CollisionCategories
+{
+	ENVIRONMENT = 0x0001,
+	BALL = 0x0002,
+	CAMERA = 0x0004
+};
 
 // settings
 const int SCR_WIDTH = 1920;
@@ -169,12 +177,17 @@ int main()
 	// Add the collider to the rigid body 
 	auto collider = rBody->addCollider(sphereShape, ident);
 	collider->getMaterial().setBounciness(0.6f);
+	rBody->setIsAllowedToSleep(false);
+	collider->setCollisionCategoryBits(CollisionCategories::BALL);
+	collider->setCollideWithMaskBits(CollisionCategories::BALL | CollisionCategories::ENVIRONMENT | CollisionCategories::CAMERA);
 	physics.colliders[0] = collider;
 
 	auto cameraTransform = Transform(toPhysVec(camera.Position), Quaternion::identity());
 	auto cameraBody = world->createRigidBody(cameraTransform);
 	cameraBody->setType(BodyType::STATIC);
 	auto cameraCollider = cameraBody->addCollider(capsuleShape, ident);
+	cameraCollider->setCollisionCategoryBits(CollisionCategories::CAMERA);
+	cameraCollider->setCollideWithMaskBits(CollisionCategories::BALL | CollisionCategories::ENVIRONMENT);
 	physics.bodies[CAMERA_INDEX] = cameraBody;
 	physics.prev_transforms[CAMERA_INDEX] = cameraTransform;
 	physics.colliders[CAMERA_INDEX] = cameraCollider;
@@ -215,6 +228,8 @@ int main()
 		rBody->setType(BodyType::STATIC);
 		physics.bodies[i] = rBody;
 		auto coll = rBody->addCollider(boxShapes[i - 1], ident);
+		coll->setCollisionCategoryBits(CollisionCategories::ENVIRONMENT);
+		coll->setCollideWithMaskBits(CollisionCategories::BALL | CollisionCategories::CAMERA);
 		physics.colliders[i] = coll;
 	}
 
@@ -222,9 +237,7 @@ int main()
 	float accumulator = 0.0f;
 	float modelMatrix[16];
 
-	#if PHY_DEBUG_RENDERING
 	PhysicsDebugRenderer phyDebugRenderer(world);
-	#endif
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -234,7 +247,7 @@ int main()
 		lastFrame = currentFrame;
 		processInput(window);
 
-		cout << "Camera position. X: " << camera.Position.x << " Y: " << camera.Position.y << " Z: " << camera.Position.z << endl;
+		//cout << "Camera position. X: " << camera.Position.x << " Y: " << camera.Position.y << " Z: " << camera.Position.z << endl;
 
 		cameraBody->setTransform(Transform(toPhysVec(camera.Position), Quaternion::identity()));
 
@@ -263,9 +276,10 @@ int main()
 			}
 		}
 
-		#if PHY_DEBUG_RENDERING
-		phyDebugRenderer.updateDebugState();
-		#endif
+		if (USE_PHY_DEBUG_RENDERING)
+		{
+			phyDebugRenderer.updateDebugState();
+		}
 
 		// Rendering logic
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -310,13 +324,14 @@ int main()
 		glBindVertexArray(0);
 		glDepthFunc(GL_LESS); // set depth function back to default
 
-		#if PHY_DEBUG_RENDERING
-		lampShader.use();
-		lampShader.setMat4("projection", projection);
-		lampShader.setMat4("view", view);
-		lampShader.setMat4("model", glm::mat4(1.0f));
-		phyDebugRenderer.draw();
-		#endif
+		if (USE_PHY_DEBUG_RENDERING)
+		{
+			lampShader.use();
+			lampShader.setMat4("projection", projection);
+			lampShader.setMat4("view", view);
+			lampShader.setMat4("model", glm::mat4(1.0f));
+			phyDebugRenderer.draw();
+		}
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -378,6 +393,8 @@ void processInput(GLFWwindow* window)
 		camera.ProcessKeyboard(DOWN, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
 		camera.ProcessKeyboard(UP, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS)
+		USE_PHY_DEBUG_RENDERING = !USE_PHY_DEBUG_RENDERING;
 }
 
 void setupPointLights(Shader* shader)
