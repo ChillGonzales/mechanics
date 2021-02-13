@@ -5,11 +5,11 @@
 #define _USE_MATH_DEFINES
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <iostream>
+#include <nanogui\nanogui.h>
 #include "../mechanics/camera.h"
 #include "..\mechanics\model.h"
 #include <reactphysics3d/reactphysics3d.h>
-#include <nanogui\nanogui.h>
+#include <iostream>
 using namespace std;
 using namespace reactphysics3d;
 using namespace nanogui;
@@ -110,11 +110,6 @@ int main()
 	}
 	GLint numDepthBits, numStencilBits = 0;
 	GLboolean float_mode;
-	glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_DEPTH, GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &numDepthBits);
-
-	glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,
-		GL_STENCIL, GL_FRAMEBUFFER_ATTACHMENT_STENCIL_SIZE, &numStencilBits);
-	glGetBooleanv(0x8820, &float_mode);
 
 	screen = new Screen();
 	screen->initialize(window, true);
