@@ -24,6 +24,8 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 void setupPointLights(Shader* shader);
+void performPunch();
+
 const Vector3 toPhysVec(glm::vec3 vec);
 const glm::vec3 toGlm(Vector3 vec);
 bool USE_PHY_DEBUG_RENDERING = false;
@@ -56,6 +58,11 @@ float lastFrame = 0.0f;
 
 // positions
 glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
+
+
+// physics
+RigidBody* ballBody = nullptr;
+Collider* ballCollider = nullptr;
 
 struct RenderingState
 {
@@ -159,9 +166,9 @@ int main()
 	auto ballTransform = Transform(Vector3(15.0f, 30.0f, -50.0f), Quaternion::identity());
 	physics.prev_transforms[0] = ballTransform;
 	renders.transforms[0] = ballTransform;
-	auto rBody = world->createRigidBody(ballTransform);
-	rBody->setType(BodyType::DYNAMIC);
-	physics.bodies[0] = rBody;
+	ballBody = world->createRigidBody(ballTransform);
+	ballBody->setType(BodyType::DYNAMIC);
+	physics.bodies[0] = ballBody;
 	float radius = 3.0f;
 	// TODO: how to get physics shapes to match extents of meshes?
 	SphereShape* sphereShape = common.createSphereShape(radius);
@@ -175,12 +182,15 @@ int main()
 	Transform ident = Transform::identity();
 
 	// Add the collider to the rigid body 
-	auto collider = rBody->addCollider(sphereShape, ident);
-	collider->getMaterial().setBounciness(0.6f);
-	rBody->setIsAllowedToSleep(false);
-	collider->setCollisionCategoryBits(CollisionCategories::BALL);
-	collider->setCollideWithMaskBits(CollisionCategories::BALL | CollisionCategories::ENVIRONMENT | CollisionCategories::CAMERA);
-	physics.colliders[0] = collider;
+	ballCollider = ballBody->addCollider(sphereShape, ident);
+	ballCollider->getMaterial().setBounciness(0.6f);
+	ballCollider->getMaterial().setFrictionCoefficient(0.7f);
+	ballCollider->getMaterial().setRollingResistance(2.0f);
+	ballCollider->getMaterial().setMassDensity(3.0f);
+	ballBody->setIsAllowedToSleep(false);
+	ballCollider->setCollisionCategoryBits(CollisionCategories::BALL);
+	ballCollider->setCollideWithMaskBits(CollisionCategories::BALL | CollisionCategories::ENVIRONMENT | CollisionCategories::CAMERA);
+	physics.colliders[0] = ballCollider;
 
 	auto cameraTransform = Transform(toPhysVec(camera.Position), Quaternion::identity());
 	auto cameraBody = world->createRigidBody(cameraTransform);
@@ -376,6 +386,31 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 	camera.ProcessMouseScroll(yoffset);
 }
 
+void performPunch()
+{
+	// 1. Send raycast forward
+	float magnitude = 25.0f;
+	Vector3 direction = toPhysVec(camera.Front);
+
+	// Create the ray 
+	Vector3 startPoint = toPhysVec(camera.Position);
+	Vector3 endPoint = startPoint + (magnitude * direction);
+	Ray ray(startPoint, endPoint);
+
+	// Create the raycast info object for the 
+	// raycast result 
+	RaycastInfo raycastInfo;
+
+	// Test raycasting against a collider 
+	bool isHit = ballBody->raycast(ray, raycastInfo);
+	if (isHit)
+	{
+		cout << "We hit something!" << endl;
+		float force = (1 - raycastInfo.hitFraction) * magnitude * 150;
+		ballBody->applyForceToCenterOfMass(force * direction);
+	}
+}
+
 void processInput(GLFWwindow* window)
 {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -395,6 +430,8 @@ void processInput(GLFWwindow* window)
 		camera.ProcessKeyboard(UP, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS)
 		USE_PHY_DEBUG_RENDERING = !USE_PHY_DEBUG_RENDERING;
+	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+		performPunch();
 }
 
 void setupPointLights(Shader* shader)
