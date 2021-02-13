@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{ad452d12-e732-4a2f-aa88-9a55ebe298ef}</ProjectGuid>
-    <RootNamespace>mechanics</RootNamespace>
+    <ProjectGuid>{da91aa0c-b7c8-43cf-8deb-d35a9e20b497}</ProjectGuid>
+    <RootNamespace>editor</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -148,19 +148,7 @@
     <ClCompile Include="stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="camera.h" />
-    <ClInclude Include="collision_categories.h" />
-    <ClInclude Include="physics_debug_renderer.h" />
-    <ClInclude Include="mesh.h" />
-    <ClInclude Include="model.h" />
-    <ClInclude Include="shader.h" />
-    <ClInclude Include="skybox.h" />
     <ClInclude Include="stb_image.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="ext\dynamic\assimp.dll" />
-    <None Include="shaders\fragment.glsl" />
-    <None Include="shaders\vertex.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

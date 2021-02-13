@@ -5,6 +5,8 @@ VisualStudioVersion = 16.0.30907.101
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mechanics", "mechanics\mechanics.vcxproj", "{AD452D12-E732-4A2F-AA88-9A55EBE298EF}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "editor", "editor\editor.vcxproj", "{DA91AA0C-B7C8-43CF-8DEB-D35A9E20B497}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{AD452D12-E732-4A2F-AA88-9A55EBE298EF}.Release|x64.Build.0 = Release|x64
 		{AD452D12-E732-4A2F-AA88-9A55EBE298EF}.Release|x86.ActiveCfg = Release|Win32
 		{AD452D12-E732-4A2F-AA88-9A55EBE298EF}.Release|x86.Build.0 = Release|Win32
+		{DA91AA0C-B7C8-43CF-8DEB-D35A9E20B497}.Debug|x64.ActiveCfg = Debug|x64
+		{DA91AA0C-B7C8-43CF-8DEB-D35A9E20B497}.Debug|x64.Build.0 = Debug|x64
+		{DA91AA0C-B7C8-43CF-8DEB-D35A9E20B497}.Debug|x86.ActiveCfg = Debug|Win32
+		{DA91AA0C-B7C8-43CF-8DEB-D35A9E20B497}.Debug|x86.Build.0 = Debug|Win32
+		{DA91AA0C-B7C8-43CF-8DEB-D35A9E20B497}.Release|x64.ActiveCfg = Release|x64
+		{DA91AA0C-B7C8-43CF-8DEB-D35A9E20B497}.Release|x64.Build.0 = Release|x64
+		{DA91AA0C-B7C8-43CF-8DEB-D35A9E20B497}.Release|x86.ActiveCfg = Release|Win32
+		{DA91AA0C-B7C8-43CF-8DEB-D35A9E20B497}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -2,6 +2,8 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 #define _USE_MATH_DEFINES
+#define NANOGUI_USE_OPENGL 1
+#define NANOGUI_GLAD 1
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -17,6 +19,7 @@
 #include "skybox.h"
 #include "physics_debug_renderer.h"
 #include <cmath>
+#include "collision_categories.h"
 using namespace reactphysics3d;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -29,14 +32,6 @@ void performPunch();
 const Vector3 toPhysVec(glm::vec3 vec);
 const glm::vec3 toGlm(Vector3 vec);
 bool USE_PHY_DEBUG_RENDERING = false;
-
-// Enumeration for categories 
-enum CollisionCategories
-{
-	ENVIRONMENT = 0x0001,
-	BALL = 0x0002,
-	CAMERA = 0x0004
-};
 
 // settings
 const int SCR_WIDTH = 1920;
@@ -58,7 +53,6 @@ float lastFrame = 0.0f;
 
 // positions
 glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
-
 
 // physics
 RigidBody* ballBody = nullptr;
@@ -87,7 +81,7 @@ int main()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Best Game Ever", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window" << std::endl;
@@ -111,9 +105,6 @@ int main()
 	glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_FRAMEBUFFER_SRGB);
-
-	// Register a callback for when the user resizes the window to tell open GL the new window size
-	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
 	// With our nice shader class, just give the paths and call use
 	Shader lightShader("shaders/light/vertex.glsl", "shaders/light/fragment.glsl");
