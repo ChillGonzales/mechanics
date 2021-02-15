@@ -5,14 +5,14 @@
 #define _USE_MATH_DEFINES
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <nanogui\nanogui.h>
+#include <nanogui/nanogui.h>
 #include "../mechanics/camera.h"
 #include "..\mechanics\model.h"
 #include <reactphysics3d/reactphysics3d.h>
 #include <iostream>
 using namespace std;
 using namespace reactphysics3d;
-using namespace nanogui;
+//using namespace nanogui;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -23,6 +23,8 @@ void drop_callback(GLFWwindow* window, int count, const char** filenames);
 void char_callback(GLFWwindow*, unsigned int codepoint);
 void processInput(GLFWwindow* window);
 void setupNanoGui(GLFWwindow* window);
+void loadEntitiesFromDisk(char* path);
+void saveEntitiesToDisk(char* path, RenderingState* entities);
 
 //nanogui
 enum test_enum
@@ -38,8 +40,8 @@ double dvar = 3.1415926;
 float fvar = (float)dvar;
 std::string strval = "A string";
 test_enum enumval = Item2;
-Color colval(0.5f, 0.5f, 0.7f, 1.f);
-Screen* screen = nullptr;
+//Color colval(0.5f, 0.5f, 0.7f, 1.f);
+//Screen* screen = nullptr;
 
 const int SCR_WIDTH = 1920;
 const int SCR_HEIGHT = 1080;
@@ -56,6 +58,18 @@ bool firstMouse = true;
 // timing
 float deltaTime = 0.0f;	// time between current frame and last frame
 float lastFrame = 0.0f;
+
+struct Entities
+{
+	Model* models;
+	glm::vec3* positions;
+	glm::vec3* euler_rotations;
+	RigidBody* bodies;
+	Collider* colliders;
+	unsigned int* ids;
+	unsigned int* shaderIndices;
+	char* names;
+};
 
 // TODO: We probably don't want these structs stack init'd because we'll be adding/removing items all the time.
 // Make them heap init'd
@@ -82,18 +96,18 @@ int main()
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	// nanogui hints, might need adjusting
-	glfwWindowHint(GLFW_SAMPLES, 0);
-	glfwWindowHint(GLFW_RED_BITS, 8);
-	glfwWindowHint(GLFW_GREEN_BITS, 8);
-	glfwWindowHint(GLFW_BLUE_BITS, 8);
-	glfwWindowHint(GLFW_ALPHA_BITS, 8);
-	glfwWindowHint(GLFW_STENCIL_BITS, 8);
-	glfwWindowHint(GLFW_DEPTH_BITS, 24);
+	//// nanogui hints, might need adjusting
+	//glfwWindowHint(GLFW_SAMPLES, 0);
+	//glfwWindowHint(GLFW_RED_BITS, 8);
+	//glfwWindowHint(GLFW_GREEN_BITS, 8);
+	//glfwWindowHint(GLFW_BLUE_BITS, 8);
+	//glfwWindowHint(GLFW_ALPHA_BITS, 8);
+	//glfwWindowHint(GLFW_STENCIL_BITS, 8);
+	//glfwWindowHint(GLFW_DEPTH_BITS, 24);
 
 	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Best Game Ever", NULL, NULL);
 	if (window == NULL)
@@ -111,11 +125,7 @@ int main()
 	GLint numDepthBits, numStencilBits = 0;
 	GLboolean float_mode;
 
-	screen = new Screen();
-	screen->initialize(window, true);
-
-	return 0;
-	setupNanoGui(window);
+	//setupNanoGui(window);
 
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetCursorPosCallback(window, mouse_callback);
@@ -138,12 +148,12 @@ int main()
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		// Draw nanogui
-		screen->draw_setup();
-		screen->clear(); // glClear
-		screen->draw_contents();
-		screen->draw_widgets();
-		screen->draw_teardown();
+		//// Draw nanogui
+		//screen->draw_setup();
+		//screen->clear(); // glClear
+		//screen->draw_contents();
+		//screen->draw_widgets();
+		//screen->draw_teardown();
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -155,46 +165,46 @@ int main()
 
 void setupNanoGui(GLFWwindow* window)
 {
-	// Create a nanogui screen and pass the glfw pointer to initialize
-	screen = new Screen();
-	screen->initialize(window, true);
+	//// Create a nanogui screen and pass the glfw pointer to initialize
+	//screen = new Screen();
+	//screen->initialize(window, true);
 
-	bool enabled = true;
-	FormHelper* gui = new FormHelper(screen);
-	nanogui::ref<Window> nanogui_window = gui->add_window(Vector2i(10, 10), "Form helper example");
-	gui->add_group("Basic types");
-	gui->add_variable("bool", bvar)->set_tooltip("Test tooltip.");
-	gui->add_variable("string", strval);
+	//bool enabled = true;
+	//FormHelper* gui = new FormHelper(screen);
+	//nanogui::ref<Window> nanogui_window = gui->add_window(Vector2i(10, 10), "Form helper example");
+	//gui->add_group("Basic types");
+	//gui->add_variable("bool", bvar)->set_tooltip("Test tooltip.");
+	//gui->add_variable("string", strval);
 
-	gui->add_group("Validating fields");
-	gui->add_variable("int", ivar)->set_spinnable(true);
-	gui->add_variable("float", fvar)->set_tooltip("Test.");
-	gui->add_variable("double", dvar)->set_spinnable(true);
+	//gui->add_group("Validating fields");
+	//gui->add_variable("int", ivar)->set_spinnable(true);
+	//gui->add_variable("float", fvar)->set_tooltip("Test.");
+	//gui->add_variable("double", dvar)->set_spinnable(true);
 
-	gui->add_group("Complex types");
-	gui->add_variable("Enumeration", enumval, enabled)->set_items({ "Item 1", "Item 2", "Item 3" });
-	gui->add_variable("Color", colval);
+	//gui->add_group("Complex types");
+	//gui->add_variable("Enumeration", enumval, enabled)->set_items({ "Item 1", "Item 2", "Item 3" });
+	//gui->add_variable("Color", colval);
 
-	gui->add_group("Other widgets");
-	gui->add_button("A button", []() { std::cout << "Button pressed." << std::endl; })
-		->set_tooltip("Testing a much longer tooltip, that will wrap around to new lines multiple times.");;
+	//gui->add_group("Other widgets");
+	//gui->add_button("A button", []() { std::cout << "Button pressed." << std::endl; })
+	//	->set_tooltip("Testing a much longer tooltip, that will wrap around to new lines multiple times.");;
 
-	screen->set_visible(true);
-	screen->perform_layout();
-	nanogui_window->center();
-	screen->clear();
-	screen->draw_all();
+	//screen->set_visible(true);
+	//screen->perform_layout();
+	//nanogui_window->center();
+	//screen->clear();
+	//screen->draw_all();
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
-	screen->resize_callback_event(width, height);
+	//screen->resize_callback_event(width, height);
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 {
-	screen->cursor_pos_callback_event(xpos, ypos);
+	//screen->cursor_pos_callback_event(xpos, ypos);
 	if (firstMouse)
 	{
 		lastX = xpos;
@@ -213,11 +223,11 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
 	camera.ProcessMouseScroll(yoffset);
-	screen->scroll_callback_event(xoffset, yoffset);
+	//screen->scroll_callback_event(xoffset, yoffset);
 }
 void mouse_btn_callback(GLFWwindow* window, int button, int action, int modifiers)
 {
-	screen->mouse_button_callback_event(button, action, modifiers);
+	//screen->mouse_button_callback_event(button, action, modifiers);
 }
 void processInput(GLFWwindow* window)
 {
@@ -241,13 +251,13 @@ void processInput(GLFWwindow* window)
 }
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-	screen->key_callback_event(key, scancode, action, mods);
+	//screen->key_callback_event(key, scancode, action, mods);
 }
 void drop_callback(GLFWwindow* window, int count, const char** filenames)
 {
-	screen->drop_callback_event(count, filenames);
+	//screen->drop_callback_event(count, filenames);
 }
 void char_callback(GLFWwindow*, unsigned int codepoint)
 {
-	screen->char_callback_event(codepoint);
+	//screen->char_callback_event(codepoint);
 }
