@@ -23,8 +23,8 @@ void drop_callback(GLFWwindow* window, int count, const char** filenames);
 void char_callback(GLFWwindow*, unsigned int codepoint);
 void processInput(GLFWwindow* window);
 void setupNanoGui(GLFWwindow* window);
-void loadEntitiesFromDisk(char* path);
-void saveEntitiesToDisk(char* path, RenderingState* entities);
+void loadScene(char* path, char* name);
+void saveScene(char* path, char* name, struct Entities* entities);
 
 //nanogui
 enum test_enum
@@ -45,9 +45,6 @@ test_enum enumval = Item2;
 
 const int SCR_WIDTH = 1920;
 const int SCR_HEIGHT = 1080;
-// Write these params to file
-const int NUM_PHY_OBJECTS = 7;
-const int NUM_RENDER_OBJECTS = 2;
 
 // camera
 Camera camera(glm::vec3(10.0f, -10.0f, 0.0f));
@@ -58,36 +55,6 @@ bool firstMouse = true;
 // timing
 float deltaTime = 0.0f;	// time between current frame and last frame
 float lastFrame = 0.0f;
-
-struct Entities
-{
-	Model* models;
-	glm::vec3* positions;
-	glm::vec3* euler_rotations;
-	RigidBody* bodies;
-	Collider* colliders;
-	unsigned int* ids;
-	unsigned int* shaderIndices;
-	char* names;
-};
-
-// TODO: We probably don't want these structs stack init'd because we'll be adding/removing items all the time.
-// Make them heap init'd
-struct RenderingState
-{
-	Model models[NUM_RENDER_OBJECTS];
-	Transform transforms[NUM_RENDER_OBJECTS];
-};
-struct PhysicsState
-{
-	// Collision
-	RigidBody* bodies[NUM_PHY_OBJECTS];
-	Collider* colliders[NUM_PHY_OBJECTS];
-
-	// Position
-	Transform prev_transforms[NUM_PHY_OBJECTS];
-};
-
 
 int main()
 {
@@ -109,7 +76,7 @@ int main()
 	//glfwWindowHint(GLFW_STENCIL_BITS, 8);
 	//glfwWindowHint(GLFW_DEPTH_BITS, 24);
 
-	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Best Game Ever", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Best Editor Ever", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window" << std::endl;

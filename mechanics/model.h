@@ -30,6 +30,7 @@ public:
     vector<Texture> textures_loaded;	// stores all the textures loaded so far, optimization to make sure textures aren't loaded more than once.
     vector<Mesh>    meshes;
     string directory;
+    string model_path;
     bool gammaCorrection;
 
     // So we can use the empty version in struct init
@@ -39,6 +40,7 @@ public:
     // constructor, expects a filepath to a 3D model.
     Model(string const& path, bool gamma = false) : gammaCorrection(gamma)
     {
+        model_path = path;
         loadModel(path);
     }
 

@@ -20,6 +20,8 @@
 #include "physics_debug_renderer.h"
 #include <cmath>
 #include "collision_categories.h"
+#include "../editor/scene_loader.h"
+#include "../editor/scene_manager.h"
 using namespace reactphysics3d;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -36,8 +38,6 @@ bool USE_PHY_DEBUG_RENDERING = false;
 // settings
 const int SCR_WIDTH = 1920;
 const int SCR_HEIGHT = 1080;
-const int NUM_PHY_OBJECTS = 7;
-const int NUM_RENDER_OBJECTS = 2;
 const float _physicsTimestep = 1.0f / 60.0f;
 const int CAMERA_INDEX = NUM_PHY_OBJECTS - 1;
 
@@ -57,22 +57,6 @@ glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 // physics
 RigidBody* ballBody = nullptr;
 Collider* ballCollider = nullptr;
-
-struct RenderingState
-{
-	Model models[NUM_RENDER_OBJECTS];
-	Transform transforms[NUM_RENDER_OBJECTS];
-};
-
-struct PhysicsState
-{
-	// Collision
-	RigidBody* bodies[NUM_PHY_OBJECTS];
-	Collider* colliders[NUM_PHY_OBJECTS];
-
-	// Position
-	Transform prev_transforms[NUM_PHY_OBJECTS];
-};
 
 int main()
 {
@@ -239,6 +223,9 @@ int main()
 	float modelMatrix[16];
 
 	PhysicsDebugRenderer phyDebugRenderer(world);
+
+	SceneLoader loader;
+	loader.writeSceneToDisk("D:\\src\\mechanics\\scene1.scene", "scene1", &renders, &physics, world, NUM_PHY_OBJECTS);
 
 	while (!glfwWindowShouldClose(window))
 	{
