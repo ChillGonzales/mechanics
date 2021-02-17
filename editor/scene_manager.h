@@ -15,27 +15,40 @@ struct SceneData
 	string name;
 };
 
-// TODO: Redo this alloc to be dynamic
 struct RenderingState
 {
-	Model models[NUM_RENDER_OBJECTS];
-	Transform transforms[NUM_RENDER_OBJECTS];
-	unsigned int shader_indices[NUM_RENDER_OBJECTS];
-	unsigned int length = NUM_RENDER_OBJECTS;
-	string names[NUM_RENDER_OBJECTS];
+	RenderingState(unsigned int count)
+	{
+		models = new Model[count];
+		names = new string[count];
+		length = count;
+		shader_indices = new unsigned int[count];
+		transforms = new Transform[count];
+	}
+
+	Model* models;
+	Transform* transforms;
+	unsigned int* shader_indices;
+	string* names;
+	unsigned int length;
 };
 
-// TODO: Redo this alloc to be dynamic
 struct PhysicsState
 {
-	// Collision
-	RigidBody* bodies[NUM_PHY_OBJECTS];
-	Collider* colliders[NUM_PHY_OBJECTS];
+	PhysicsState(unsigned int count)
+	{
+		bodies = new RigidBody * [count];
+		colliders = new Collider * [count];
+		prev_transforms = new Transform[count];
+		names = new string[count];
+		length = count;
+	}
 
-	// Position
-	Transform prev_transforms[NUM_PHY_OBJECTS];
-	string names[NUM_PHY_OBJECTS];
-	unsigned int length = NUM_PHY_OBJECTS;
+	RigidBody** bodies;
+	Collider** colliders;
+	Transform* prev_transforms;
+	string* names;
+	unsigned int length;
 };
 
 struct SceneHeader

@@ -8,12 +8,16 @@ using namespace std;
 using namespace reactphysics3d;
 
 string boolSer(bool val);
+bool boolDeSer(string val);
 string transformSer(Transform val);
+Transform transformDeSer(string val);
 string vec3Ser(Vector3 val);
+Vector3 vec3DeSer(string val);
 string bodyTypeSer(BodyType val);
 string collShapeNameSer(CollisionShapeName val);
 string collShapeInitSer(CollisionShape* val);
 vector<string> split(const string str, string delimiter);
+vector<string> line_split(const string line);
 
 struct SceneLoader
 {
@@ -108,7 +112,7 @@ struct SceneLoader
 
 				if (sectionIx == 0)
 				{
-					auto segs = split(line, "\t");
+					auto segs = line_split(line);
 					header.name = segs[0];
 					header.phy_sleeping_enabled = boolDeSer(segs[1]);
 					header.phy_gravity = vec3DeSer(segs[2]);
@@ -116,19 +120,19 @@ struct SceneLoader
 					header.phy_position_iterations = stoi(segs[4]);
 					header.render_obj_count = stoi(segs[5]);
 					header.phy_obj_count = stoi(segs[6]);
-					header.renders = new RenderingState;
-					header.physics = new PhysicsState;
+					header.renders = new RenderingState(header.render_obj_count);
+					header.physics = new PhysicsState(header.phy_obj_count);
 					sectionIx += 1;
 					continue;
 				}
 
 				if (sectionIx == 1)
 				{
-					auto segs = split(line, "\t");
-					RenderingState state;
-					state.
-
-					header.renders[obj_counter] = state;
+					auto segs = line_split(line);
+					header.renders->names[obj_counter] = segs[0];
+					header.renders->transforms[obj_counter] = transformDeSer(segs[1]);
+					header.renders->models[obj_counter] = Model(segs[2]);
+					header.renders->shader_indices[obj_counter] = stoi(segs[3]);
 
 					obj_counter += 1;
 					if (obj_counter == header.render_obj_count)
@@ -161,6 +165,24 @@ vector<string> split(const string str, string delimiter)
 		output.push_back(token);
 		s.erase(0, pos + delimiter.length());
 	}
+	if (s != "")
+		output.push_back(s);
+	return output;
+}
+
+vector<string> line_split(const string line)
+{
+	// each item in the line is in a key:value format. 
+	// We're disposing of the keys for now as we're just hardcoding order/presence.
+	// That might change in the future.
+	vector<string> tokens;
+	auto segs = split(line, "\t");
+	for (int i = 0; i < segs.size(); i++)
+	{
+		auto t = split(segs[i], ":");
+		tokens.push_back(t[1]);
+	}
+	return tokens;
 }
 
 string boolSer(bool val)
@@ -205,6 +227,14 @@ string transformSer(Transform val)
 	str += ",";
 	str += to_string(quat.w);
 	return str;
+}
+
+Transform transformDeSer(string val)
+{
+	auto segs = split(val, ",");
+	auto vec = Vector3(stof(segs[0]), stof(segs[1]), stof(segs[2]));
+	auto quat = Quaternion(stof(segs[3]), stof(segs[4]), stof(segs[5]), stof(segs[6]));
+	return Transform(vec, quat);
 }
 
 string bodyTypeSer(BodyType val)

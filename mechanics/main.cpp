@@ -117,8 +117,8 @@ int main()
 	skybox.init(faces);
 
 	// Set up our objects for physics and rendering
-	RenderingState renders;
-	PhysicsState physics;
+	RenderingState renders(NUM_RENDER_OBJECTS);
+	PhysicsState physics(NUM_PHY_OBJECTS);
 
 	auto ball = Model("assets/ball/ball.obj");
 	renders.models[0] = ball;
