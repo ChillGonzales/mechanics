@@ -225,7 +225,7 @@ int main()
 	PhysicsDebugRenderer phyDebugRenderer(world);
 
 	SceneLoader loader;
-	loader.writeSceneToDisk("D:\\src\\mechanics\\scene1.scene", "scene1", &renders, &physics, world, NUM_PHY_OBJECTS);
+	loader.writeSceneToDisk("scene1.scene", "scene1", &renders, &physics, world);
 
 	while (!glfwWindowShouldClose(window))
 	{

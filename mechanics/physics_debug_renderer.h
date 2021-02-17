@@ -57,6 +57,7 @@ struct PhysicsDebugRenderer
 		auto lineVtxCount = double(floatsPerLine) * nbLines;
 		if (lineVertices == nullptr || lineVtxCount != numLineVertices)
 		{
+			delete[numLineVertices] lineVertices;
 			numLineVertices = lineVtxCount;
 			lineVertices = new float[numLineVertices];
 		}
@@ -85,6 +86,7 @@ struct PhysicsDebugRenderer
 		auto triVtxCount = double(floatsPerTri) * nbTris;
 		if (triVertices == nullptr || triVtxCount != numTriVertices)
 		{
+			delete[numTriVertices] triVertices;
 			numTriVertices = triVtxCount;
 			triVertices = new float[numTriVertices];
 		}

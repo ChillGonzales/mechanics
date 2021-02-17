@@ -9,13 +9,21 @@ using namespace reactphysics3d;
 const int NUM_PHY_OBJECTS = 7;
 const int NUM_RENDER_OBJECTS = 2;
 
+struct SceneData
+{
+	unsigned int num_entities;
+	string name;
+};
+
 struct Entities
 {
 	Model* models;
-	glm::vec3* positions;
-	glm::vec3* euler_rotations;
-	RigidBody* bodies;
-	Collider* colliders;
+	Transform* transforms;
+	Transform* prev_transforms;
+	bool* is_rendered_flags;
+	bool* has_phy_flags;
+	RigidBody** bodies;
+	Collider** colliders;
 	unsigned int* ids;
 	unsigned int* shaderIndices;
 	string* names;
@@ -25,6 +33,7 @@ struct RenderingState
 {
 	Model models[NUM_RENDER_OBJECTS];
 	Transform transforms[NUM_RENDER_OBJECTS];
+	unsigned int length = NUM_RENDER_OBJECTS;
 };
 
 struct PhysicsState
@@ -35,5 +44,6 @@ struct PhysicsState
 
 	// Position
 	Transform prev_transforms[NUM_PHY_OBJECTS];
+	unsigned int length = NUM_PHY_OBJECTS;
 };
 
