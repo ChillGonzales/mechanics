@@ -8,12 +8,12 @@ using namespace std;
 using namespace reactphysics3d;
 
 string boolSer(bool val);
-string vec3Ser(Vector3 val);
 string transformSer(Transform val);
 string vec3Ser(Vector3 val);
 string bodyTypeSer(BodyType val);
 string collShapeNameSer(CollisionShapeName val);
 string collShapeInitSer(CollisionShape* val);
+vector<string> split(const string str, string delimiter);
 
 struct SceneLoader
 {
@@ -37,39 +37,36 @@ struct SceneLoader
 			sceneFile << "phy_sleeping_enabled:" << boolSer(world->isSleepingEnabled()) << "\t";
 			sceneFile << "phy_gravity:" << vec3Ser(world->getGravity()) << "\t";
 			sceneFile << "phy_velocity_iterations:" << world->getNbIterationsVelocitySolver() << "\t";
-			sceneFile << "phy_position_iterations:" << world->getNbIterationsPositionSolver() << "\n";
+			sceneFile << "phy_position_iterations:" << world->getNbIterationsPositionSolver() << "\t";
+			sceneFile << "render_obj_count:" << renders->length << "\t";
+			sceneFile << "phy_obj_count:" << phy_entities->length << "\t";
+			sceneFile << "\n";
 
 			sceneFile << "***START RENDER DATA***\n";
 			for (unsigned int i = 0; i < renders->length; i++)
 			{
+				sceneFile << "name:" << renders->names[i] << "\t";
 				sceneFile << "transform:" << transformSer(renders->transforms[i]) << "\t";
-				sceneFile << "model_path:" << renders->models[i].model_path;
+				sceneFile << "model_path:" << renders->models[i].model_path << "\t";
+				sceneFile << "shader_index:" << to_string(renders->shader_indices[i]);
 				sceneFile << "\n";
 			}
 
 			sceneFile << "***START PHYSICS DATA***\n";
 			for (unsigned int i = 0; i < phy_entities->length; i++)
 			{
-				/**
-				*
-	unsigned int collider_shape_type;
-	// There will be logic in our file loader class that will tell us how many initializers our collider needs.
-	float* collider_initializers;
-	float collider_bounciness;
-	float collider_friction;
-	float collider_rolling_resist;
-	float mass_density;
-	bool collider_sleep;
-	unsigned short collider_category_bits;
-	unsigned short collider_collide_mask_bits;
-	unsigned int id;
-	unsigned int shaderIndex;
-
-				* */
+				sceneFile << "phy_obj_name:" << phy_entities->names[i] << "\t";
 				sceneFile << "rbody_transform:" << transformSer(phy_entities->bodies[i]->getTransform()) << "\t";
 				sceneFile << "rbody_type:" << bodyTypeSer(phy_entities->bodies[i]->getType()) << "\t";
+				sceneFile << "rbody_sleep_enabled:" << phy_entities->bodies[i]->isAllowedToSleep() << "\t";
 				sceneFile << "collider_shape_type:" << collShapeNameSer(phy_entities->colliders[i]->getCollisionShape()->getName()) << "\t";
 				sceneFile << "collider_shape_values:" << collShapeInitSer(phy_entities->colliders[i]->getCollisionShape()) << "\t";
+				sceneFile << "collider_mat_bounciness:" << to_string(phy_entities->colliders[i]->getMaterial().getBounciness()) << "\t";
+				sceneFile << "collider_mat_friction:" << to_string(phy_entities->colliders[i]->getMaterial().getFrictionCoefficient()) << "\t";
+				sceneFile << "collider_mat_rolling_resist:" << to_string(phy_entities->colliders[i]->getMaterial().getRollingResistance()) << "\t";
+				sceneFile << "collider_mat_mass_density:" << to_string(phy_entities->colliders[i]->getMaterial().getMassDensity()) << "\t";
+				sceneFile << "collider_category_bits:" << to_string(phy_entities->colliders[i]->getCollisionCategoryBits()) << "\t";
+				sceneFile << "collider_collide_mask_bits:" << to_string(phy_entities->colliders[i]->getCollideWithMaskBits());
 				sceneFile << "\n";
 			}
 
@@ -79,16 +76,92 @@ struct SceneLoader
 		catch (std::ifstream::failure& e)
 		{
 			std::cout << "ERROR::SCENE_LOADER::FILE_NOT_WRITTEN" << std::endl;
+			return false;
 		}
 
 		return true;
 	}
 
-	//SceneHeader loadScene(string path, string name)
-	//{
-	//}
+	struct SceneHeader* loadScene(string pathWithNameAndExt, string name)
+	{
+		std::ifstream sceneFile;
+		sceneFile.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+		try
+		{
+			SceneHeader header;
+			header.path = pathWithNameAndExt;
+			sceneFile.open(pathWithNameAndExt);
+			if (!sceneFile.is_open())
+			{
+				cout << "Could not open file at location '" << pathWithNameAndExt << "'. Failed." << endl;
+				return nullptr;
+			}
+			
+			string line;
+			unsigned int sectionIx = 0;
+			string sections[3] = { "header", "render", "physics" };
+			unsigned int obj_counter = 0;
+			while (getline(sceneFile, line))
+			{
+				// Comment token
+				if (line.substr(0, 3) == "***") continue;
 
+				if (sectionIx == 0)
+				{
+					auto segs = split(line, "\t");
+					header.name = segs[0];
+					header.phy_sleeping_enabled = boolDeSer(segs[1]);
+					header.phy_gravity = vec3DeSer(segs[2]);
+					header.phy_velocity_iterations = stoi(segs[3]);
+					header.phy_position_iterations = stoi(segs[4]);
+					header.render_obj_count = stoi(segs[5]);
+					header.phy_obj_count = stoi(segs[6]);
+					header.renders = new RenderingState;
+					header.physics = new PhysicsState;
+					sectionIx += 1;
+					continue;
+				}
+
+				if (sectionIx == 1)
+				{
+					auto segs = split(line, "\t");
+					RenderingState state;
+					state.
+
+					header.renders[obj_counter] = state;
+
+					obj_counter += 1;
+					if (obj_counter == header.render_obj_count)
+					{
+						sectionIx += 1;
+						obj_counter = 0;
+					}
+				}
+
+			}
+			sceneFile.close();
+		}
+		catch (std::ifstream::failure& e)
+		{
+			std::cout << "ERROR::SCENE_LOADER::ERROR_READING_FILE" << std::endl;
+			return nullptr;
+		}
+	}
 };
+
+vector<string> split(const string str, string delimiter)
+{
+	vector<string> output;
+	string s = str;
+	size_t pos = 0;
+	std::string token;
+	while ((pos = s.find(delimiter)) != std::string::npos)
+	{
+		token = s.substr(0, pos);
+		output.push_back(token);
+		s.erase(0, pos + delimiter.length());
+	}
+}
 
 string boolSer(bool val)
 {
@@ -97,6 +170,10 @@ string boolSer(bool val)
 		return "1";
 	}
 	return "0";
+}
+bool boolDeSer(string val)
+{
+	return val == "1";
 }
 string vec3Ser(Vector3 val)
 {
@@ -107,6 +184,11 @@ string vec3Ser(Vector3 val)
 	str += ",";
 	str += to_string(val.z);
 	return str;
+}
+Vector3 vec3DeSer(string val)
+{
+	auto segs = split(val, ",");
+	return Vector3(stof(segs[0]), stof(segs[1]), stof(segs[2]));
 }
 string transformSer(Transform val)
 {
@@ -154,62 +236,31 @@ string collShapeInitSer(CollisionShape* val)
 	switch (val->getName())
 	{
 	case CollisionShapeName::TRIANGLE:
+	{
 		auto tri = dynamic_cast<TriangleShape*>(val);
 		// TODO: Implement
-		return str;
+		break;
+	}
 	case CollisionShapeName::BOX:
+	{
 		auto box = dynamic_cast<BoxShape*>(val);
-		return vec3Ser(box->getHalfExtents());
+		str = vec3Ser(box->getHalfExtents());
+		break;
+	}
 	case CollisionShapeName::CAPSULE:
+	{
 		auto cap = dynamic_cast<CapsuleShape*>(val);
 		str += to_string(cap->getHeight());
 		str += ",";
 		str += to_string(cap->getRadius());
+		break;
+	}
+	case CollisionShapeName::SPHERE:
+	{
+		auto sp = dynamic_cast<SphereShape*>(val);
+		str += to_string(sp->getRadius());
+		break;
+	}
 	}
 	return str;
 }
-string vec3Ser(Vector3 val)
-{
-	string str = "";
-	str += to_string(val.x);
-	str += ",";
-	str += to_string(val.y);
-	str += ",";
-	str += to_string(val.z);
-	return str;
-}
-
-struct SceneHeader
-{
-	string name;
-	string path;
-	unsigned int num_entities;
-	bool phy_sleeping_enabled;
-	Vector3 phy_gravity;
-	unsigned int phy_velocity_iterations;
-	unsigned int phy_position_iterations;
-	struct SceneEntity* entities;
-};
-
-struct SceneEntity
-{
-	string model_path;
-	glm::vec3 world_position;
-	glm::vec3 world_rotation;
-	Vector3 rigidbody_position;
-	Vector3 rigidbody_rotation;
-	unsigned int rigidbody_type;
-	unsigned int collider_shape_type;
-	// There will be logic in our file loader class that will tell us how many initializers our collider needs.
-	float* collider_initializers;
-	float collider_bounciness;
-	float collider_friction;
-	float collider_rolling_resist;
-	float mass_density;
-	bool collider_sleep;
-	unsigned short collider_category_bits;
-	unsigned short collider_collide_mask_bits;
-	unsigned int id;
-	unsigned int shaderIndex;
-	string name;
-};

@@ -97,6 +97,9 @@ int main()
 	skyboxShader.use();
 	skyboxShader.setInt("skybox", 0);
 	stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
+	Shader shaders[3] = {
+		lightShader, skyboxShader, lampShader
+	};
 
 	setupPointLights(&lightShader);
 
@@ -119,11 +122,15 @@ int main()
 
 	auto ball = Model("assets/ball/ball.obj");
 	renders.models[0] = ball;
+	renders.shader_indices[0] = 0;
+	renders.names[0] = "ball";
 
 	for (unsigned int i = 1; i < NUM_RENDER_OBJECTS; i++)
 	{
 		renders.models[i] = Model("assets/plank/plank.obj");
 		renders.transforms[i] = Transform(Vector3::zero(), Quaternion::identity());
+		renders.shader_indices[i] = 0;
+		renders.names[i] = "environment" + to_string(i);
 	}
 
 	// Create the world settings 
@@ -144,6 +151,7 @@ int main()
 	ballBody = world->createRigidBody(ballTransform);
 	ballBody->setType(BodyType::DYNAMIC);
 	physics.bodies[0] = ballBody;
+	physics.names[0] = "ball";
 	float radius = 3.0f;
 	// TODO: how to get physics shapes to match extents of meshes?
 	SphereShape* sphereShape = common.createSphereShape(radius);
@@ -176,6 +184,7 @@ int main()
 	physics.bodies[CAMERA_INDEX] = cameraBody;
 	physics.prev_transforms[CAMERA_INDEX] = cameraTransform;
 	physics.colliders[CAMERA_INDEX] = cameraCollider;
+	physics.names[CAMERA_INDEX] = "camera";
 
 	constexpr float rad90 = glm::radians(90.0f);
 	const auto envCount = NUM_PHY_OBJECTS - 2;
@@ -216,6 +225,7 @@ int main()
 		coll->setCollisionCategoryBits(CollisionCategories::ENVIRONMENT);
 		coll->setCollideWithMaskBits(CollisionCategories::BALL | CollisionCategories::CAMERA);
 		physics.colliders[i] = coll;
+		physics.names[i] = "wall" + to_string(i);
 	}
 
 	// Init variables for main loop
@@ -226,6 +236,7 @@ int main()
 
 	SceneLoader loader;
 	loader.writeSceneToDisk("scene1.scene", "scene1", &renders, &physics, world);
+	loader.loadScene("scene1.scene", "scene1");
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -273,6 +284,7 @@ int main()
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		// TODO: Be able to handle different shaders based on what is read from the scene
 		lightShader.use();
 
 		// Activate our shader program
