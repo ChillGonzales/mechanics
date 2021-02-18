@@ -14,14 +14,21 @@ Transform transformDeSer(string val);
 string vec3Ser(Vector3 val);
 Vector3 vec3DeSer(string val);
 string bodyTypeSer(BodyType val);
+BodyType bodyTypeDeSer(string val);
 string collShapeNameSer(CollisionShapeName val);
+CollisionShapeName collShapeNameDeSer(string val);
 string collShapeInitSer(CollisionShape* val);
+CollisionShape* collShapeInitDeSer(CollisionShapeName name, PhysicsCommon* common, string val);
 vector<string> split(const string str, string delimiter);
 vector<string> line_split(const string line);
 
 struct SceneLoader
 {
-	bool writeSceneToDisk(string pathWithNameAndExt, string name, struct RenderingState* renders, struct PhysicsState* phy_entities, PhysicsWorld* world)
+	bool writeSceneToDisk(string pathWithNameAndExt,
+		string name,
+		struct RenderingState* renders,
+		struct PhysicsState* phy_entities,
+		PhysicsWorld* world)
 	{
 		std::ofstream sceneFile;
 		sceneFile.exceptions(std::ofstream::failbit | std::ofstream::badbit);
@@ -86,70 +93,102 @@ struct SceneLoader
 		return true;
 	}
 
-	struct SceneHeader* loadScene(string pathWithNameAndExt, string name)
+	struct SceneHeader* loadScene(string pathWithNameAndExt,
+		string name,
+		PhysicsWorld* world,
+		PhysicsCommon* common)
 	{
 		std::ifstream sceneFile;
-		sceneFile.exceptions(std::ofstream::failbit | std::ofstream::badbit);
-		try
+		SceneHeader* header = new SceneHeader;
+		header->path = pathWithNameAndExt;
+		sceneFile.open(pathWithNameAndExt);
+		if (!sceneFile.is_open())
 		{
-			SceneHeader header;
-			header.path = pathWithNameAndExt;
-			sceneFile.open(pathWithNameAndExt);
-			if (!sceneFile.is_open())
-			{
-				cout << "Could not open file at location '" << pathWithNameAndExt << "'. Failed." << endl;
-				return nullptr;
-			}
-			
-			string line;
-			unsigned int sectionIx = 0;
-			string sections[3] = { "header", "render", "physics" };
-			unsigned int obj_counter = 0;
-			while (getline(sceneFile, line))
-			{
-				// Comment token
-				if (line.substr(0, 3) == "***") continue;
-
-				if (sectionIx == 0)
-				{
-					auto segs = line_split(line);
-					header.name = segs[0];
-					header.phy_sleeping_enabled = boolDeSer(segs[1]);
-					header.phy_gravity = vec3DeSer(segs[2]);
-					header.phy_velocity_iterations = stoi(segs[3]);
-					header.phy_position_iterations = stoi(segs[4]);
-					header.render_obj_count = stoi(segs[5]);
-					header.phy_obj_count = stoi(segs[6]);
-					header.renders = new RenderingState(header.render_obj_count);
-					header.physics = new PhysicsState(header.phy_obj_count);
-					sectionIx += 1;
-					continue;
-				}
-
-				if (sectionIx == 1)
-				{
-					auto segs = line_split(line);
-					header.renders->names[obj_counter] = segs[0];
-					header.renders->transforms[obj_counter] = transformDeSer(segs[1]);
-					header.renders->models[obj_counter] = Model(segs[2]);
-					header.renders->shader_indices[obj_counter] = stoi(segs[3]);
-
-					obj_counter += 1;
-					if (obj_counter == header.render_obj_count)
-					{
-						sectionIx += 1;
-						obj_counter = 0;
-					}
-				}
-
-			}
-			sceneFile.close();
-		}
-		catch (std::ifstream::failure& e)
-		{
-			std::cout << "ERROR::SCENE_LOADER::ERROR_READING_FILE" << std::endl;
+			cout << "Could not open file at location '" << pathWithNameAndExt << "'. Failed." << endl;
 			return nullptr;
 		}
+
+		string line;
+		unsigned int sectionIx = 0;
+		string sections[3] = { "header", "render", "physics" };
+		unsigned int obj_counter = 0;
+		while (getline(sceneFile, line))
+		{
+			// Comment token
+			if (line.substr(0, 3) == "***") continue;
+
+			if (sectionIx == 0)
+			{
+				auto segs = line_split(line);
+				header->name = segs[0];
+				header->phy_sleeping_enabled = boolDeSer(segs[1]);
+				header->phy_gravity = vec3DeSer(segs[2]);
+				header->phy_velocity_iterations = stoi(segs[3]);
+				header->phy_position_iterations = stoi(segs[4]);
+				header->render_obj_count = stoi(segs[5]);
+				header->phy_obj_count = stoi(segs[6]);
+				header->renders = new RenderingState(header->render_obj_count);
+				header->physics = new PhysicsState(header->phy_obj_count);
+				sectionIx += 1;
+				continue;
+			}
+			if (sectionIx == 1)
+			{
+				auto segs = line_split(line);
+				header->renders->names[obj_counter] = segs[0];
+				header->renders->transforms[obj_counter] = transformDeSer(segs[1]);
+				header->renders->models[obj_counter] = Model(segs[2]);
+				header->renders->shader_indices[obj_counter] = stoi(segs[3]);
+
+				obj_counter += 1;
+				if (obj_counter == header->render_obj_count)
+				{
+					sectionIx += 1;
+					obj_counter = 0;
+					continue;
+				}
+			}
+			if (sectionIx == 2)
+			{
+				auto segs = line_split(line);
+				header->physics->names[obj_counter] = segs[0];
+				auto rb_trans = transformDeSer(segs[1]);
+				auto rb_type = bodyTypeDeSer(segs[2]);
+				auto sleep_enabled = boolDeSer(segs[3]);
+				RigidBody* body = world->createRigidBody(rb_trans);
+				body->setType(rb_type);
+				body->setIsAllowedToSleep(sleep_enabled);
+				header->physics->bodies[obj_counter] = body;
+
+				auto coll_shape_name = collShapeNameDeSer(segs[4]);
+				auto coll_shape = collShapeInitDeSer(coll_shape_name, common, segs[5]);
+				auto bounce = stof(segs[6]);
+				auto friction = stof(segs[7]);
+				auto rolling = stof(segs[8]);
+				auto density = stof(segs[9]);
+				auto category_bits = (unsigned short)stoul(segs[10]);
+				auto category_mask = (unsigned short)stoul(segs[11]);
+				Collider* coll;
+				coll = body->addCollider(coll_shape, Transform::identity()); // Hardcoding this offset transform for now
+				coll->getMaterial().setBounciness(bounce);
+				coll->getMaterial().setFrictionCoefficient(friction);
+				coll->getMaterial().setRollingResistance(rolling);
+				coll->getMaterial().setMassDensity(density);
+				coll->setCollisionCategoryBits(category_bits);
+				coll->setCollideWithMaskBits(category_mask);
+				header->physics->colliders[obj_counter] = coll;
+
+				obj_counter += 1;
+				if (obj_counter == header->phy_obj_count)
+				{
+					sectionIx += 1;
+					obj_counter = 0;
+					continue;
+				}
+			}
+		}
+		sceneFile.close();
+		return header;
 	}
 };
 
@@ -248,6 +287,16 @@ string bodyTypeSer(BodyType val)
 	return "0";
 }
 
+BodyType bodyTypeDeSer(string val)
+{
+	if (val == "0") return BodyType::STATIC;
+	if (val == "1") return BodyType::KINEMATIC;
+	if (val == "2") return BodyType::DYNAMIC;
+
+	cout << "Unhandled rigid body type" << endl;
+	assert(false);
+}
+
 string collShapeNameSer(CollisionShapeName val)
 {
 	switch (val)
@@ -258,6 +307,17 @@ string collShapeNameSer(CollisionShapeName val)
 	case CollisionShapeName::BOX: return "box";
 	}
 	return "box";
+}
+
+CollisionShapeName collShapeNameDeSer(string val)
+{
+	if (val == "triangle") return CollisionShapeName::TRIANGLE;
+	if (val == "capsule") return CollisionShapeName::CAPSULE;
+	if (val == "sphere") return CollisionShapeName::SPHERE;
+	if (val == "box") return CollisionShapeName::BOX;
+
+	cout << "Failed to deser collision shape name." << endl;
+	assert(false);
 }
 
 string collShapeInitSer(CollisionShape* val)
@@ -293,4 +353,32 @@ string collShapeInitSer(CollisionShape* val)
 	}
 	}
 	return str;
+}
+
+CollisionShape* collShapeInitDeSer(CollisionShapeName name, PhysicsCommon* common, string val)
+{
+	switch (name)
+	{
+	case CollisionShapeName::TRIANGLE:
+	{
+		// TODO: Implement
+		return nullptr;
+	}
+	case CollisionShapeName::BOX:
+	{
+		auto extents = vec3DeSer(val);
+		return common->createBoxShape(extents);
+	}
+	case CollisionShapeName::CAPSULE:
+	{
+		auto segs = split(val, ",");
+		assert(segs.size() == 2);
+
+		return common->createCapsuleShape(stof(segs[1]), stof(segs[0]));
+	}
+	case CollisionShapeName::SPHERE:
+	{
+		return common->createSphereShape(stof(val));
+	}
+	}
 }

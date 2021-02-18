@@ -236,7 +236,13 @@ int main()
 
 	SceneLoader loader;
 	loader.writeSceneToDisk("scene1.scene", "scene1", &renders, &physics, world);
-	loader.loadScene("scene1.scene", "scene1");
+	auto header = loader.loadScene("scene1.scene", "scene1", world, &common);
+
+	//delete& renders;
+	//delete& physics;
+
+	renders = *header->renders;
+	physics = *header->physics;
 
 	while (!glfwWindowShouldClose(window))
 	{

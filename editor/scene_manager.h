@@ -19,11 +19,19 @@ struct RenderingState
 {
 	RenderingState(unsigned int count)
 	{
-		models = new Model[count];
-		names = new string[count];
+		models = new (Model[count]);
+		names = new (string[count]);
 		length = count;
-		shader_indices = new unsigned int[count];
-		transforms = new Transform[count];
+		shader_indices = new (unsigned int[count]);
+		transforms = new (Transform[count]);
+	}
+
+	~RenderingState()
+	{
+		delete models;
+		delete transforms;
+		delete shader_indices;
+		delete names;
 	}
 
 	Model* models;
@@ -42,6 +50,13 @@ struct PhysicsState
 		prev_transforms = new Transform[count];
 		names = new string[count];
 		length = count;
+	}
+	~PhysicsState()
+	{
+		delete bodies;
+		delete colliders;
+		delete prev_transforms;
+		delete names;
 	}
 
 	RigidBody** bodies;
