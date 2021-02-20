@@ -12,15 +12,13 @@ enum Camera_Movement {
     FORWARD,
     BACKWARD,
     LEFT,
-    RIGHT,
-    UP,
-    DOWN
+    RIGHT
 };
 
 // Default camera values
 const float YAW         = -90.0f;
 const float PITCH       =  0.0f;
-const float SPEED       =  30.0f;
+const float SPEED       =  50.0f;
 const float SENSITIVITY =  0.1f;
 const float ZOOM        =  45.0f;
 
@@ -32,9 +30,13 @@ public:
     // camera Attributes
     glm::vec3 Position;
     glm::vec3 Front;
+    glm::vec3 MoveFront;
     glm::vec3 Up;
     glm::vec3 Right;
+    glm::vec3 MoveRight;
     glm::vec3 WorldUp;
+    glm::vec3 positionConstraintMins;
+    glm::vec3 positionConstraintMaxs;
     // euler Angles
     float Yaw;
     float Pitch;
@@ -42,23 +44,30 @@ public:
     float MovementSpeed;
     float MouseSensitivity;
     float Zoom;
+    bool constrain = true;
+
+    Camera() : Front(glm::vec3(0.0f, 0.0f, -1.0f)),
+        MovementSpeed(SPEED),
+        MouseSensitivity(SENSITIVITY),
+        Zoom(ZOOM),
+        Yaw(YAW),
+        Pitch(PITCH)
+    {}
 
     // constructor with vectors
-    Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
+    void Init(glm::vec3 mins,
+			glm::vec3 maxs,
+			glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), 
+			glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), 
+			float yaw = YAW, 
+			float pitch = PITCH)
     {
         Position = position;
         WorldUp = up;
         Yaw = yaw;
         Pitch = pitch;
-        updateCameraVectors();
-    }
-    // constructor with scalar values
-    Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
-    {
-        Position = glm::vec3(posX, posY, posZ);
-        WorldUp = glm::vec3(upX, upY, upZ);
-        Yaw = yaw;
-        Pitch = pitch;
+        positionConstraintMins = mins;
+        positionConstraintMaxs = maxs;
         updateCameraVectors();
     }
 
@@ -72,18 +81,24 @@ public:
     void ProcessKeyboard(Camera_Movement direction, float deltaTime)
     {
         float velocity = MovementSpeed * deltaTime;
+        glm::vec3 newPos = Position;
+
         if (direction == FORWARD)
-            Position += Front * velocity;
+            newPos += MoveFront * velocity;
         if (direction == BACKWARD)
-            Position -= Front * velocity;
+            newPos -= MoveFront * velocity;
         if (direction == LEFT)
-            Position -= Right * velocity;
+            newPos -= MoveRight * velocity;
         if (direction == RIGHT)
-            Position += Right * velocity;
-        if (direction == UP)
-            Position += WorldUp * velocity;
-        if (direction == DOWN)
-            Position -= WorldUp * velocity;
+            newPos += MoveRight * velocity;
+
+        if (!constrain
+            || (newPos.x >= positionConstraintMins.x && newPos.x <= positionConstraintMaxs.x
+            && newPos.y >= positionConstraintMins.y && newPos.y <= positionConstraintMaxs.y
+            && newPos.z >= positionConstraintMins.z && newPos.z <= positionConstraintMaxs.z))
+        {
+            Position = newPos;
+        }
     }
 
     // processes input received from a mouse input system. Expects the offset value in both the x and y direction.
@@ -128,6 +143,8 @@ private:
         front.y = sin(glm::radians(Pitch));
         front.z = sin(glm::radians(Yaw)) * cos(glm::radians(Pitch));
         Front = glm::normalize(front);
+        MoveFront = glm::vec3(Front.x, 0.0f, Front.z);
+        MoveRight = glm::vec3(Right.x, 0.0f, Right.z);
         // also re-calculate the Right and Up vector
         Right = glm::normalize(glm::cross(Front, WorldUp));  // normalize the vectors, because their length gets closer to 0 the more you look up or down which results in slower movement.
         Up    = glm::normalize(glm::cross(Right, Front));

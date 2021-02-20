@@ -50,6 +50,9 @@
     <ClInclude Include="collision_categories.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="world_axes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\fragment.glsl" />

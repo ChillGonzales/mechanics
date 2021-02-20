@@ -156,6 +156,7 @@
     <ClInclude Include="shader.h" />
     <ClInclude Include="skybox.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="world_axes.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ext\dynamic\assimp.dll" />

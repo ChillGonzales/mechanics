@@ -26,13 +26,12 @@ struct RenderingState
 		transforms = new (Transform[count]);
 	}
 
-	~RenderingState()
-	{
-		delete models;
-		delete transforms;
-		delete shader_indices;
-		delete names;
-	}
+	//~RenderingState()
+	//{
+	//	delete models;
+	//	delete transforms;
+	//	delete names;
+	//}
 
 	Model* models;
 	Transform* transforms;
@@ -51,13 +50,13 @@ struct PhysicsState
 		names = new string[count];
 		length = count;
 	}
-	~PhysicsState()
-	{
-		delete bodies;
-		delete colliders;
-		delete prev_transforms;
-		delete names;
-	}
+	//~PhysicsState()
+	//{
+	//	delete bodies;
+	//	delete colliders;
+	//	delete prev_transforms;
+	//	delete names;
+	//}
 
 	RigidBody** bodies;
 	Collider** colliders;

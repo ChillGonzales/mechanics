@@ -42,7 +42,7 @@ const float _physicsTimestep = 1.0f / 60.0f;
 const int CAMERA_INDEX = NUM_PHY_OBJECTS - 1;
 
 // camera
-Camera camera(glm::vec3(10.0f, -10.0f, 0.0f));
+Camera camera;
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -152,14 +152,14 @@ int main()
 	ballBody->setType(BodyType::DYNAMIC);
 	physics.bodies[0] = ballBody;
 	physics.names[0] = "ball";
-	float radius = 3.0f;
+	float ballRadius = 6.0f;
 	// TODO: how to get physics shapes to match extents of meshes?
-	SphereShape* sphereShape = common.createSphereShape(radius);
+	SphereShape* sphereShape = common.createSphereShape(ballRadius);
 	Vector3 floorExtents(160.0f, 1.0f, 160.0f);
 	Vector3 wallExtents(75.0, 1.0f, floorExtents.z);
 	BoxShape* floorShape = common.createBoxShape(floorExtents);
 	BoxShape* wallShape = common.createBoxShape(wallExtents);
-	CapsuleShape* capsuleShape = common.createCapsuleShape(3.0f, 8.0f);
+	CapsuleShape* capsuleShape = common.createCapsuleShape(3.0f, 4.0f);
 
 	// Relative transform of the collider relative to the body origin 
 	Transform ident = Transform::identity();
@@ -167,14 +167,17 @@ int main()
 	// Add the collider to the rigid body 
 	ballCollider = ballBody->addCollider(sphereShape, ident);
 	ballCollider->getMaterial().setBounciness(0.6f);
-	ballCollider->getMaterial().setFrictionCoefficient(0.7f);
-	ballCollider->getMaterial().setRollingResistance(2.0f);
-	ballCollider->getMaterial().setMassDensity(3.0f);
+	ballCollider->getMaterial().setFrictionCoefficient(0.5f);
+	ballCollider->getMaterial().setRollingResistance(1.5f);
+	ballCollider->getMaterial().setMassDensity(2.0f);
 	ballBody->setIsAllowedToSleep(false);
 	ballCollider->setCollisionCategoryBits(CollisionCategories::BALL);
 	ballCollider->setCollideWithMaskBits(CollisionCategories::BALL | CollisionCategories::ENVIRONMENT | CollisionCategories::CAMERA);
 	physics.colliders[0] = ballCollider;
 
+	camera.Init(glm::vec3(-50.0f, -20.0f, -250.0f), 
+		glm::vec3(250.0f, 0.0f, 50.0f),
+		glm::vec3(10.0f, -4.0f, 0.0f));
 	auto cameraTransform = Transform(toPhysVec(camera.Position), Quaternion::identity());
 	auto cameraBody = world->createRigidBody(cameraTransform);
 	cameraBody->setType(BodyType::STATIC);
@@ -233,15 +236,15 @@ int main()
 	float modelMatrix[16];
 
 
-	SceneLoader loader;
-	loader.writeSceneToDisk("scene1.scene", "scene1", &renders, &physics, world);
-	auto header = loader.loadScene("scene1.scene", "scene1");
+	//SceneLoader loader;
+	//loader.writeSceneToDisk("scene1.scene", "scene1", &renders, &physics, world);
+	//auto header = loader.loadScene("scene1.scene", "scene1");
 
 	// TODO: memory cleanup
 
-	world = header->world;
-	renders = *header->renders;
-	physics = *header->physics;
+	//world = header->world;
+	//renders = *header->renders;
+	//physics = *header->physics;
 	PhysicsDebugRenderer phyDebugRenderer(world);
 
 	while (!glfwWindowShouldClose(window))
@@ -385,7 +388,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 void performPunch()
 {
 	// 1. Send raycast forward
-	float magnitude = 25.0f;
+	float magnitude = 50.0f;
 	Vector3 direction = toPhysVec(camera.Front);
 
 	// Create the ray 
@@ -403,7 +406,8 @@ void performPunch()
 	{
 		cout << "We hit something!" << endl;
 		float force = (1 - raycastInfo.hitFraction) * magnitude * 150;
-		ballBody->applyForceToCenterOfMass(force * direction);
+		//ballBody->applyForceToCenterOfMass(force * direction);
+		ballBody->applyForceAtWorldPosition(force * direction, raycastInfo.worldPoint);
 	}
 }
 
@@ -420,10 +424,6 @@ void processInput(GLFWwindow* window)
 		camera.ProcessKeyboard(LEFT, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 		camera.ProcessKeyboard(RIGHT, deltaTime);
-	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-		camera.ProcessKeyboard(DOWN, deltaTime);
-	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-		camera.ProcessKeyboard(UP, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS)
 		USE_PHY_DEBUG_RENDERING = !USE_PHY_DEBUG_RENDERING;
 	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
