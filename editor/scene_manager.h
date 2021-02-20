@@ -72,12 +72,9 @@ struct SceneHeader
 	string path;
 	unsigned int phy_obj_count;
 	unsigned int render_obj_count;
-	bool phy_sleeping_enabled;
-	Vector3 phy_gravity;
-	unsigned int phy_velocity_iterations;
-	unsigned int phy_position_iterations;
 	struct PhysicsState* physics;
 	RenderingState* renders;
+	PhysicsWorld* world;
 };
 
 struct SceneEntity

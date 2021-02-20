@@ -232,17 +232,17 @@ int main()
 	float accumulator = 0.0f;
 	float modelMatrix[16];
 
-	PhysicsDebugRenderer phyDebugRenderer(world);
 
 	SceneLoader loader;
 	loader.writeSceneToDisk("scene1.scene", "scene1", &renders, &physics, world);
-	auto header = loader.loadScene("scene1.scene", "scene1", world, &common);
+	auto header = loader.loadScene("scene1.scene", "scene1");
 
-	//delete& renders;
-	//delete& physics;
+	// TODO: memory cleanup
 
+	world = header->world;
 	renders = *header->renders;
 	physics = *header->physics;
+	PhysicsDebugRenderer phyDebugRenderer(world);
 
 	while (!glfwWindowShouldClose(window))
 	{

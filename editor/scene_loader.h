@@ -93,10 +93,7 @@ struct SceneLoader
 		return true;
 	}
 
-	struct SceneHeader* loadScene(string pathWithNameAndExt,
-		string name,
-		PhysicsWorld* world,
-		PhysicsCommon* common)
+	struct SceneHeader* loadScene(string pathWithNameAndExt, string name)
 	{
 		std::ifstream sceneFile;
 		SceneHeader* header = new SceneHeader;
@@ -112,6 +109,9 @@ struct SceneLoader
 		unsigned int sectionIx = 0;
 		string sections[3] = { "header", "render", "physics" };
 		unsigned int obj_counter = 0;
+		PhysicsWorld::WorldSettings settings;
+		PhysicsWorld* world = nullptr;
+		PhysicsCommon common;
 		while (getline(sceneFile, line))
 		{
 			// Comment token
@@ -121,14 +121,22 @@ struct SceneLoader
 			{
 				auto segs = line_split(line);
 				header->name = segs[0];
-				header->phy_sleeping_enabled = boolDeSer(segs[1]);
-				header->phy_gravity = vec3DeSer(segs[2]);
-				header->phy_velocity_iterations = stoi(segs[3]);
-				header->phy_position_iterations = stoi(segs[4]);
+				auto sleeping_enabled = boolDeSer(segs[1]);
+				auto gravity = vec3DeSer(segs[2]);
+				auto velocity_iterations = stoi(segs[3]);
+				auto position_iterations = stoi(segs[4]);
+				settings.gravity = gravity;
+				settings.isSleepingEnabled = sleeping_enabled;
+				settings.defaultVelocitySolverNbIterations = velocity_iterations;
+				settings.defaultPositionSolverNbIterations = position_iterations;
+				world = common.createPhysicsWorld(settings);
+				world->setIsDebugRenderingEnabled(true); // TODO: Hardcoded, we could make this configurable.
+
 				header->render_obj_count = stoi(segs[5]);
 				header->phy_obj_count = stoi(segs[6]);
 				header->renders = new RenderingState(header->render_obj_count);
 				header->physics = new PhysicsState(header->phy_obj_count);
+				header->world = world;
 				sectionIx += 1;
 				continue;
 			}
@@ -161,7 +169,7 @@ struct SceneLoader
 				header->physics->bodies[obj_counter] = body;
 
 				auto coll_shape_name = collShapeNameDeSer(segs[4]);
-				auto coll_shape = collShapeInitDeSer(coll_shape_name, common, segs[5]);
+				auto coll_shape = collShapeInitDeSer(coll_shape_name, &common, segs[5]);
 				auto bounce = stof(segs[6]);
 				auto friction = stof(segs[7]);
 				auto rolling = stof(segs[8]);
