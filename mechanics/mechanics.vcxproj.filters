@@ -53,6 +53,9 @@
     <ClInclude Include="world_axes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="collision_event_listener.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\fragment.glsl" />

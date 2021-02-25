@@ -7,5 +7,5 @@ enum CollisionCategories
 	BALL = 0x0002,
 	CAMERA = 0x0004,
 	FLOOR = 0x0008,
-	NET = 0x0016
+	NET = 0x0010
 };

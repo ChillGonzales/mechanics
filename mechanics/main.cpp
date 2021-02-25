@@ -20,6 +20,7 @@
 #include "physics_debug_renderer.h"
 #include <cmath>
 #include "collision_categories.h"
+#include "collision_event_listener.h"
 #include "../editor/scene_loader.h"
 #include "../editor/scene_manager.h"
 using namespace reactphysics3d;
@@ -139,6 +140,8 @@ int main()
 	settings.gravity = Vector3(0, -9.81f, 0);
 	PhysicsCommon common;
 	auto* world = common.createPhysicsWorld(settings);
+	CollisionEventListener coll_listener;
+	world->setEventListener(&coll_listener);
 	world->setIsDebugRenderingEnabled(true);
 	// Defaults are 10 and 5 so if this is laggy then change it.
 	world->setNbIterationsVelocitySolver(15);
@@ -242,7 +245,7 @@ int main()
 		// All these indexes are hard coded right now, this will be fixed once we have an editor
 		if (i == 1)
 			coll->setCollisionCategoryBits(CollisionCategories::FLOOR);
-		else if (i == NUM_PHY_OBJECTS - 1)
+		else if (i == (NUM_PHY_OBJECTS - 2))
 			coll->setCollisionCategoryBits(CollisionCategories::NET);
 		else
 			coll->setCollisionCategoryBits(CollisionCategories::ENVIRONMENT);
@@ -289,12 +292,6 @@ int main()
 			world->update(_physicsTimestep);
 			accumulator -= _physicsTimestep;
 		}
-
-		auto category = raycastInfo.collider->getCollisionCategoryBits();
-		if (category & CollisionCategories::NET)
-			cout << "We hit the damn net!" << endl;
-		else if (category & CollisionCategories::FLOOR)
-			cout << "We touched the floor!" << endl;
 
 		// Compute the time interpolation factor 
 		decimal factor = accumulator / _physicsTimestep;

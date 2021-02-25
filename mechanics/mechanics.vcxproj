@@ -149,6 +149,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="camera.h" />
+    <ClInclude Include="collision_event_listener.h" />
     <ClInclude Include="collision_categories.h" />
     <ClInclude Include="physics_debug_renderer.h" />
     <ClInclude Include="mesh.h" />
