@@ -6,7 +6,7 @@
 using namespace reactphysics3d;
 
 // Write these params to file
-const int NUM_PHY_OBJECTS = 7;
+const int NUM_PHY_OBJECTS = 9;
 const int NUM_RENDER_OBJECTS = 2;
 
 struct SceneData

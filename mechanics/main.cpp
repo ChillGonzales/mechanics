@@ -159,6 +159,7 @@ int main()
 	Vector3 wallExtents(75.0, 1.0f, floorExtents.z);
 	BoxShape* floorShape = common.createBoxShape(floorExtents);
 	BoxShape* wallShape = common.createBoxShape(wallExtents);
+	BoxShape* netShape = common.createBoxShape(Vector3(12.0f, 1.0f, floorExtents.z));
 	CapsuleShape* capsuleShape = common.createCapsuleShape(3.0f, 4.0f);
 
 	// Relative transform of the collider relative to the body origin 
@@ -172,7 +173,11 @@ int main()
 	ballCollider->getMaterial().setMassDensity(2.0f);
 	ballBody->setIsAllowedToSleep(false);
 	ballCollider->setCollisionCategoryBits(CollisionCategories::BALL);
-	ballCollider->setCollideWithMaskBits(CollisionCategories::BALL | CollisionCategories::ENVIRONMENT | CollisionCategories::CAMERA);
+	ballCollider->setCollideWithMaskBits(CollisionCategories::BALL | 
+		CollisionCategories::ENVIRONMENT | 
+		CollisionCategories::CAMERA | 
+		CollisionCategories::FLOOR | 
+		CollisionCategories::NET);
 	physics.colliders[0] = ballCollider;
 
 	camera.Init(glm::vec3(-50.0f, -20.0f, -250.0f), 
@@ -183,7 +188,10 @@ int main()
 	cameraBody->setType(BodyType::STATIC);
 	auto cameraCollider = cameraBody->addCollider(capsuleShape, ident);
 	cameraCollider->setCollisionCategoryBits(CollisionCategories::CAMERA);
-	cameraCollider->setCollideWithMaskBits(CollisionCategories::BALL | CollisionCategories::ENVIRONMENT);
+	cameraCollider->setCollideWithMaskBits(CollisionCategories::BALL | 
+		CollisionCategories::ENVIRONMENT | 
+		CollisionCategories::FLOOR | 
+		CollisionCategories::NET);
 	physics.bodies[CAMERA_INDEX] = cameraBody;
 	physics.prev_transforms[CAMERA_INDEX] = cameraTransform;
 	physics.colliders[CAMERA_INDEX] = cameraCollider;
@@ -192,11 +200,13 @@ int main()
 	constexpr float rad90 = glm::radians(90.0f);
 	const auto envCount = NUM_PHY_OBJECTS - 2;
 	Vector3 angles[envCount] = {
-		Vector3(0.0f, 0.0f, 0.0f),
-		Vector3(0.0f, 0.0f, rad90),
-		Vector3(rad90, 0.0f, rad90),
-		Vector3(0.0f, 0.0f, rad90),
-		Vector3(rad90, 0.0f, rad90),
+		Vector3(0.0f, 0.0f, 0.0f), // floor
+		Vector3(0.0f, 0.0f, rad90), // left wall
+		Vector3(rad90, 0.0f, rad90), // back wall
+		Vector3(0.0f, 0.0f, rad90), // right wall
+		Vector3(rad90, 0.0f, rad90), // front wall
+		Vector3(0.0f, 0.0f, 0.0f), // ceiling
+		Vector3(rad90, 0.0f, rad90) // net
 	};
 
 	Vector3 origin(25.0f, -25.0f, -25.0f);
@@ -207,6 +217,8 @@ int main()
 		Vector3(origin.x + floorExtents.x / 2, floorExtents.y, 4 * origin.z - floorExtents.z), // back wall
 		Vector3(4 * origin.x + floorExtents.x, floorExtents.y, origin.z - floorExtents.z / 2), // right wall
 		Vector3(origin.x + floorExtents.x / 2, floorExtents.y, origin.z + floorExtents.z / 2), // front wall
+		Vector3(origin.x + floorExtents.x / 2, origin.y + 80.0f, origin.z + -1.0f * (floorExtents.z / 2)), // ceiling
+		Vector3(origin.x + floorExtents.x / 2, floorExtents.y - 6.0f, -100.0f), // back wall
 	};
 	BoxShape* boxShapes[envCount] = {
 		floorShape,
@@ -214,6 +226,8 @@ int main()
 		wallShape,
 		wallShape,
 		wallShape,
+		floorShape,
+		netShape,
 	};
 	// Start at 1 because we set up the ball collider manually
 	// Stop before the end because we set up the camera collider manually
@@ -225,10 +239,16 @@ int main()
 		rBody->setType(BodyType::STATIC);
 		physics.bodies[i] = rBody;
 		auto coll = rBody->addCollider(boxShapes[i - 1], ident);
-		coll->setCollisionCategoryBits(CollisionCategories::ENVIRONMENT);
+		// All these indexes are hard coded right now, this will be fixed once we have an editor
+		if (i == 1)
+			coll->setCollisionCategoryBits(CollisionCategories::FLOOR);
+		else if (i == NUM_PHY_OBJECTS - 1)
+			coll->setCollisionCategoryBits(CollisionCategories::NET);
+		else
+			coll->setCollisionCategoryBits(CollisionCategories::ENVIRONMENT);
 		coll->setCollideWithMaskBits(CollisionCategories::BALL | CollisionCategories::CAMERA);
 		physics.colliders[i] = coll;
-		physics.names[i] = "wall" + to_string(i);
+		physics.names[i] = "env" + to_string(i);
 	}
 
 	// Init variables for main loop
@@ -246,12 +266,15 @@ int main()
 	//renders = *header->renders;
 	//physics = *header->physics;
 	PhysicsDebugRenderer phyDebugRenderer(world);
+	float frameRate = 0.0f;
 
 	while (!glfwWindowShouldClose(window))
 	{
 		// per-frame time logic
 		float currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
+		//frameRate = 1 / deltaTime;
+		//cout << "Frame rate: " << to_string(frameRate) << "fps" << endl;
 		lastFrame = currentFrame;
 		processInput(window);
 
@@ -267,6 +290,12 @@ int main()
 			accumulator -= _physicsTimestep;
 		}
 
+		auto category = raycastInfo.collider->getCollisionCategoryBits();
+		if (category & CollisionCategories::NET)
+			cout << "We hit the damn net!" << endl;
+		else if (category & CollisionCategories::FLOOR)
+			cout << "We touched the floor!" << endl;
+
 		// Compute the time interpolation factor 
 		decimal factor = accumulator / _physicsTimestep;
 
@@ -280,6 +309,7 @@ int main()
 			physics.prev_transforms[i] = currTrans;
 			if (i < (NUM_RENDER_OBJECTS - 1))
 			{
+				// Sync render transform with rigidbody transform
 				renders.transforms[i] = interpolatedTransform;
 			}
 		}
@@ -388,12 +418,13 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 void performPunch()
 {
 	// 1. Send raycast forward
-	float magnitude = 50.0f;
+	float magnitude = 1000.0f;
+	float reach = 50.0f;
 	Vector3 direction = toPhysVec(camera.Front);
 
 	// Create the ray 
 	Vector3 startPoint = toPhysVec(camera.Position);
-	Vector3 endPoint = startPoint + (magnitude * direction);
+	Vector3 endPoint = startPoint + (reach * direction);
 	Ray ray(startPoint, endPoint);
 
 	// Create the raycast info object for the 
@@ -404,10 +435,9 @@ void performPunch()
 	bool isHit = ballBody->raycast(ray, raycastInfo);
 	if (isHit)
 	{
-		cout << "We hit something!" << endl;
-		float force = (1 - raycastInfo.hitFraction) * magnitude * 150;
-		//ballBody->applyForceToCenterOfMass(force * direction);
-		ballBody->applyForceAtWorldPosition(force * direction, raycastInfo.worldPoint);
+		float force = (1 - raycastInfo.hitFraction) * magnitude;
+		ballBody->applyForceToCenterOfMass(force * direction);
+		//ballBody->applyForceAtWorldPosition(force * direction, raycastInfo.worldPoint);
 	}
 }
 
