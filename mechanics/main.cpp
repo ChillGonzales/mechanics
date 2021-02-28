@@ -58,6 +58,7 @@ glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 // physics
 RigidBody* ballBody = nullptr;
 Collider* ballCollider = nullptr;
+bool ballUsesGravity = false;
 
 int main()
 {
@@ -153,6 +154,7 @@ int main()
 	renders.transforms[0] = ballTransform;
 	ballBody = world->createRigidBody(ballTransform);
 	ballBody->setType(BodyType::DYNAMIC);
+	ballBody->enableGravity(ballUsesGravity);
 	physics.bodies[0] = ballBody;
 	physics.names[0] = "ball";
 	float ballRadius = 6.0f;
@@ -221,7 +223,7 @@ int main()
 		Vector3(4 * origin.x + floorExtents.x, floorExtents.y, origin.z - floorExtents.z / 2), // right wall
 		Vector3(origin.x + floorExtents.x / 2, floorExtents.y, origin.z + floorExtents.z / 2), // front wall
 		Vector3(origin.x + floorExtents.x / 2, origin.y + 80.0f, origin.z + -1.0f * (floorExtents.z / 2)), // ceiling
-		Vector3(origin.x + floorExtents.x / 2, floorExtents.y - 6.0f, -100.0f), // back wall
+		Vector3(origin.x + floorExtents.x / 2, floorExtents.y - 15.0f, -100.0f), // back wall
 	};
 	BoxShape* boxShapes[envCount] = {
 		floorShape,
@@ -435,6 +437,10 @@ void performPunch()
 		float force = (1 - raycastInfo.hitFraction) * magnitude;
 		ballBody->applyForceToCenterOfMass(force * direction);
 		//ballBody->applyForceAtWorldPosition(force * direction, raycastInfo.worldPoint);
+		if (!ballUsesGravity)
+		{
+			ballBody->enableGravity(true);
+		}
 	}
 }
 
