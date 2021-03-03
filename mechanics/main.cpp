@@ -31,6 +31,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 void setupPointLights(Shader* shader);
 void performPunch();
+void performJump();
 
 const Vector3 toPhysVec(glm::vec3 vec);
 const glm::vec3 toGlm(Vector3 vec);
@@ -58,6 +59,7 @@ glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 // physics
 RigidBody* ballBody = nullptr;
 Collider* ballCollider = nullptr;
+RigidBody* cameraBody = nullptr;
 bool ballUsesGravity = false;
 
 int main()
@@ -189,8 +191,10 @@ int main()
 		glm::vec3(250.0f, 0.0f, 50.0f),
 		glm::vec3(10.0f, -4.0f, 0.0f));
 	auto cameraTransform = Transform(toPhysVec(camera.Position), Quaternion::identity());
-	auto cameraBody = world->createRigidBody(cameraTransform);
-	cameraBody->setType(BodyType::STATIC);
+	cameraBody = world->createRigidBody(cameraTransform);
+	cameraBody->setType(BodyType::DYNAMIC);
+	cameraBody->enableGravity(true);
+	cameraBody->setMass(5.0f);
 	auto cameraCollider = cameraBody->addCollider(capsuleShape, ident);
 	cameraCollider->setCollisionCategoryBits(CollisionCategories::CAMERA);
 	cameraCollider->setCollideWithMaskBits(CollisionCategories::BALL | 
@@ -418,7 +422,7 @@ void performPunch()
 {
 	// 1. Send raycast forward
 	float magnitude = 1000.0f;
-	float reach = 50.0f;
+	float reach = 75.0f;
 	Vector3 direction = toPhysVec(camera.Front);
 
 	// Create the ray 
@@ -444,6 +448,12 @@ void performPunch()
 	}
 }
 
+void performJump()
+{
+	auto force = 1000.0f * camera.WorldUp;
+	cameraBody->applyForceToCenterOfMass(toPhysVec(force));
+}
+
 void processInput(GLFWwindow* window)
 {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -459,8 +469,10 @@ void processInput(GLFWwindow* window)
 		camera.ProcessKeyboard(RIGHT, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS)
 		USE_PHY_DEBUG_RENDERING = !USE_PHY_DEBUG_RENDERING;
-	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
 		performPunch();
+	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+		performJump();
 }
 
 void setupPointLights(Shader* shader)
